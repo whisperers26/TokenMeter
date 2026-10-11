@@ -2,6 +2,7 @@ import type {
   ProcessRunInit,
   ProcessRunResult,
   Register,
+  RenderSurface,
   SessionUsage,
   SessionVersion,
   Settings,
@@ -48,11 +49,28 @@ type Told = { transcriptPath?: string; effort?: string }
 
 type ToldBy = { transcript_path: string; effort?: { level: string } }
 
+/** Whether Claude Code's settings run a status line command of their own. */
+function hasOwnStatusLine({ statusLine }: Settings): boolean {
+  const command =
+    typeof statusLine === 'object' && statusLine !== null
+      ? (statusLine as { command?: unknown }).command
+      : undefined
+
+  return typeof command === 'string' && command.trim() !== ''
+}
+
 export const register: Register = on => {
   let host: Host | null = null
   let lines: Line[] | null = null
   let queued: Timer | null = null
   let told: Told = {}
+
+  // A terminal that runs a status line of its own already shows these lines
+  // under the prompt; until the settings say it runs none, it is left alone
+  let isTerminalFree = false
+
+  const drawsOn = (surface: RenderSurface) =>
+    surface === 'desktop' || (surface === 'terminal' && isTerminalFree)
 
   function note(e: ToldBy) {
     told = {
@@ -134,7 +152,7 @@ export const register: Register = on => {
     })
   }
 
-  on('session.start', ($, e, next) => {
+  on('session.start', async ($, e, next) => {
     host = {
       root: $.plugin.root,
       now: () => $.clock.now(),
@@ -153,6 +171,11 @@ export const register: Register = on => {
       home: async () =>
         (await $.env.get('USERPROFILE')) ?? (await $.env.get('HOME')),
     }
+
+    isTerminalFree = await $.settings.read().then(
+      settings => !hasOwnStatusLine(settings),
+      () => false,
+    )
 
     return next(e)
   })
@@ -176,7 +199,7 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, ($, e, next) => {
-    if (!host) {
+    if (!host || e.props.hasSurvey || !drawsOn(e.surface)) {
       return next(e)
     }
 

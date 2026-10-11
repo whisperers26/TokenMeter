@@ -10,6 +10,11 @@ const START = { surface: null, isInteractive: true, cwd: '/work/app' } as const
 
 const TRANSCRIPT = '/home/me/.claude/projects/-work-app/session-1.jsonl'
 
+/** Claude Code settings that already run a status line under a terminal. */
+const OWN_STATUS_LINE = {
+  statusLine: { type: 'command', command: 'npx -y ccstatusline@latest' },
+}
+
 /** What the mod wrote to the engine's standard input on its `at`th run. */
 const stdinOf = (runs: World['runs'], at = 0): unknown =>
   JSON.parse(runs[at]?.init?.stdin ?? 'null')
@@ -116,5 +121,57 @@ describe('register', () => {
     await clock.settle()
 
     expect(stdinOf(runs)).toMatchObject({ output_style: { name: 'Explanatory' } })
+  })
+
+  test('yields the band to a survey, running nothing for it', async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    await $.session.start(START)
+
+    const ui = await $.ui.mount({
+      ...BAND,
+      surface: 'desktop',
+      props: { ...BAND.props, hasSurvey: true },
+    })
+
+    await clock.settle()
+
+    expect([runs, rowsOf(await ui.drawn())]).toEqual([[], []])
+  })
+
+  test('stays quiet on a terminal that has a statusLine of its own', async ($, on) => {
+    const { clock, runs } = worldOf(on, { settings: OWN_STATUS_LINE })
+
+    await $.session.start({ ...START, surface: 'terminal' })
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+
+    await clock.settle()
+
+    expect([runs, rowsOf(await ui.drawn())]).toEqual([[], []])
+  })
+
+  test('draws on a terminal that has no statusLine', async ($, on) => {
+    const { clock } = worldOf(on)
+
+    await $.session.start({ ...START, surface: 'terminal' })
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+
+    await clock.settle()
+
+    expect(rowsOf(await ui.drawn())).toHaveLength(2)
+  })
+
+  test("draws on desktop whatever the terminal's statusLine", async ($, on) => {
+    const { clock } = worldOf(on, { settings: OWN_STATUS_LINE })
+
+    await $.session.start(START)
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+
+    await clock.settle()
+
+    expect(rowsOf(await ui.drawn())).toHaveLength(2)
   })
 })

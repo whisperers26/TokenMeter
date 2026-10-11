@@ -13,8 +13,14 @@ const ENGINE_ENTRY = 'engine/ccstatusline.js'
 /** The engine's settings file, under the home directory on every platform. */
 const ENGINE_SETTINGS = ['.config', 'ccstatusline', 'settings.json'] as const
 
+/** The most of a failure's own words the band is asked to show. */
+const FAILURE_MAX_CHARS = 200
+
 /** What a classic hook event carried that the status line shows. */
 export type Told = { transcriptPath?: string; effort?: string }
+
+/** What a run of the engine came to: its lines, or why it drew none. */
+export type Status = { lines: Line[] } | { failure: string }
 
 /** What one run of the engine is asked to draw for. */
 export type StatusRequest = {
@@ -105,30 +111,51 @@ async function widthOf(
   return columns + flexReserveOf(settingsText, contextPercent)
 }
 
+/** The first line of `text` that says anything, cut to fit a band's row. */
+const firstLineOf = (text: string) =>
+  (text.split('\n').find(line => line.trim() !== '') ?? '')
+    .trim()
+    .slice(0, FAILURE_MAX_CHARS)
+
 /**
  * Runs the engine once on the session as it stands and reads what it printed:
  * the status lines a terminal's `statusLine` command would have shown.
  *
+ * Never rejects: a run that could not be made, or that the engine failed, is
+ * answered as a `failure` the band can show in the lines' place.
+ *
  * @param host the calls on Claude Code the run is made with
  * @param request what the session's events told, and the band's width
- * @returns the lines, each as its styled spans
+ * @returns the lines, each as its styled spans, or why there are none
  */
-export async function statusLinesOf(
+export async function statusOf(
   host: Host,
   { told, columns }: StatusRequest,
-): Promise<Line[]> {
-  const home = await host.home()
-  const facts = await factsOf(host, told, home)
+): Promise<Status> {
+  try {
+    const home = await host.home()
+    const facts = await factsOf(host, told, home)
 
-  const width =
-    columns === undefined
-      ? undefined
-      : await widthOf(host, home, columns, facts.usage.context.percent)
+    const width =
+      columns === undefined
+        ? undefined
+        : await widthOf(host, home, columns, facts.usage.context.percent)
 
-  const ran = await host.run(['node', pathIn(host.root, ENGINE_ENTRY)], {
-    stdin: JSON.stringify(payloadOf(facts)),
-    ...(width !== undefined && { env: { CCSTATUSLINE_WIDTH: String(width) } }),
-  })
+    const ran = await host.run(['node', pathIn(host.root, ENGINE_ENTRY)], {
+      stdin: JSON.stringify(payloadOf(facts)),
+      ...(width !== undefined && { env: { CCSTATUSLINE_WIDTH: String(width) } }),
+    })
 
-  return parseAnsi(ran.stdout)
+    if (ran.exitCode !== 0) {
+      const said = firstLineOf(ran.stderr) || `exit code ${ran.exitCode}`
+
+      return { failure: `the engine failed (${said})` }
+    }
+
+    return { lines: parseAnsi(ran.stdout) }
+  } catch (error) {
+    const said = firstLineOf(error instanceof Error ? error.message : String(error))
+
+    return { failure: `the engine did not run (${said})` }
+  }
 }

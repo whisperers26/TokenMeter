@@ -37,6 +37,13 @@ export const USAGE: SessionUsage = {
   cost: { usd: 1.23 },
 }
 
+/** The key of the band Claude Code draws when the mod draws none. */
+const OWN_BAND = 'claude-code-own-band'
+
+/** Whether a drawn band is Claude Code's own: the mod passed the draw on. */
+export const isLeftAlone = (tree: unknown): boolean =>
+  (tree as { props?: { key?: unknown } }).props?.key === OWN_BAND
+
 /**
  * A path as the test wrote it: the host hands a hook the path resolved its
  * own way, a drive letter and backslashes on Windows.
@@ -50,6 +57,17 @@ export const printed = (stdout: string): Ran => ({
     exitCode: 0,
     stdout,
     stderr: '',
+    isStdoutTruncated: false,
+    isStderrTruncated: false,
+  },
+})
+
+/** A run of the engine that printed no lines and exited with `exitCode`. */
+export const exited = (exitCode: number, stderr: string): Ran => ({
+  value: {
+    exitCode,
+    stdout: '',
+    stderr,
     isStdoutTruncated: false,
     isStderrTruncated: false,
   },
@@ -108,7 +126,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, ($, e) =>
-    $.ui.resolve(e).Box({}),
+    $.ui.resolve(e).Box({ key: OWN_BAND }),
   )
 
   return { runs, reads, clock }

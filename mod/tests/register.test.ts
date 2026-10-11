@@ -1,14 +1,19 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { BAND } from './fixtures/band'
+import { ENGINE_OUTPUT } from './fixtures/engine-output'
 import { rowsOf } from './fixtures/rows-of'
-import { worldOf } from './fixtures/world'
+import { exited, isLeftAlone, printed, worldOf } from './fixtures/world'
 import type { World } from './fixtures/world'
 
 /** A session the desktop app hosts: no terminal, a person at the prompt. */
 const START = { surface: null, isInteractive: true, cwd: '/work/app' } as const
 
 const TRANSCRIPT = '/home/me/.claude/projects/-work-app/session-1.jsonl'
+
+/** How the host refuses a run whose command is not on the PATH. */
+const NO_NODE =
+  "process.run(node) failed to start: ENOENT: Command 'node' not found"
 
 /** Claude Code settings that already run a status line under a terminal. */
 const OWN_STATUS_LINE = {
@@ -139,7 +144,7 @@ describe('register', () => {
 
     await clock.settle()
 
-    expect([runs, rowsOf(await ui.drawn())]).toEqual([[], []])
+    expect([runs, isLeftAlone(await ui.drawn())]).toEqual([[], true])
   })
 
   test('stays quiet on a terminal that has a statusLine of its own', async ($, on) => {
@@ -151,7 +156,7 @@ describe('register', () => {
 
     await clock.settle()
 
-    expect([runs, rowsOf(await ui.drawn())]).toEqual([[], []])
+    expect([runs, isLeftAlone(await ui.drawn())]).toEqual([[], true])
   })
 
   test('draws on a terminal that has no statusLine', async ($, on) => {
@@ -229,5 +234,85 @@ describe('register', () => {
     await clock.settle()
 
     expect(runs).toHaveLength(1)
+  })
+
+  test('says why in the band when the engine cannot be started', async ($, on) => {
+    const { clock } = worldOf(on, { run: () => ({ deny: NO_NODE }) })
+
+    await $.session.start(START)
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+
+    await clock.settle()
+
+    const rows = rowsOf(await ui.drawn())
+
+    expect(rows.map(row => row.length)).toEqual([1])
+    expect(rows[0]?.[0]).toMatchObject({ dimColor: true })
+    expect(rows[0]?.[0]?.text).toMatch(
+      /^Token Meter: the engine did not run \(.*ENOENT: Command 'node' not found\)$/,
+    )
+  })
+
+  test('says why in the band when the engine fails', async ($, on) => {
+    const { clock } = worldOf(on, {
+      run: () =>
+        exited(1, '\nInvalid status JSON format: expected object\n    at main\n'),
+    })
+
+    await $.session.start(START)
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+
+    await clock.settle()
+
+    expect(rowsOf(await ui.drawn()).map(row => row.map(span => span.text))).toEqual([
+      ['Token Meter: the engine failed (Invalid status JSON format: expected object)'],
+    ])
+  })
+
+  test('an engine that fails without a word is reported by its exit code', async ($, on) => {
+    const { clock } = worldOf(on, { run: () => exited(3, '') })
+
+    await $.session.start(START)
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+
+    await clock.settle()
+
+    expect(rowsOf(await ui.drawn()).map(row => row.map(span => span.text))).toEqual([
+      ['Token Meter: the engine failed (exit code 3)'],
+    ])
+  })
+
+  test('an engine that prints nothing leaves the band to Claude Code', async ($, on) => {
+    const { clock } = worldOf(on, { run: () => printed('') })
+
+    await $.session.start(START)
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+
+    await clock.settle()
+
+    expect(isLeftAlone(await ui.drawn())).toBe(true)
+  })
+
+  test('draws the lines again once the engine recovers', async ($, on) => {
+    let isBroken = true
+
+    const { clock } = worldOf(on, {
+      run: () => (isBroken ? { deny: NO_NODE } : printed(ENGINE_OUTPUT)),
+    })
+
+    await $.session.start(START)
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+
+    await clock.settle()
+    isBroken = false
+    await ui.redraw({ ...BAND.props, bodyColumns: 80 })
+    await clock.settle()
+
+    expect(rowsOf(await ui.drawn())).toHaveLength(2)
   })
 })

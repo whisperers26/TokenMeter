@@ -1,9 +1,8 @@
 import type { Register, RenderSurface, Settings, Timer } from 'claude-code'
 
-import type { Line } from './ansi'
 import type { Host } from './host'
-import { statusLinesOf } from './status'
-import type { Told } from './status'
+import { statusOf } from './status'
+import type { Status, Told } from './status'
 
 type ToldBy = { transcript_path: string; effort?: { level: string } }
 
@@ -19,7 +18,7 @@ function hasOwnStatusLine({ statusLine }: Settings): boolean {
 
 export const register: Register = on => {
   let bound: Host | null = null
-  let lines: Line[] | null = null
+  let status: Status | null = null
   let queued: Timer | null = null
   let told: Told = {}
 
@@ -42,7 +41,7 @@ export const register: Register = on => {
   }
 
   async function refresh(host: Host) {
-    lines = await statusLinesOf(host, {
+    status = await statusOf(host, {
       told,
       columns: columnsOf.size === 0 ? undefined : Math.min(...columnsOf.values()),
     })
@@ -113,19 +112,33 @@ export const register: Register = on => {
 
     columnsOf.set(e.surface, e.props.bodyColumns)
 
-    if (isResized || lines === null) {
+    if (isResized || status === null) {
       schedule(bound)
-    }
-
-    if (lines === null) {
-      return next(e)
     }
 
     const { Box, Text } = $.ui.resolve(e)
 
+    if (status === null) {
+      return next(e)
+    }
+
+    if ('failure' in status) {
+      return (
+        <Box flexDirection="column">
+          <Text dimColor wrap="truncate-end">
+            {`Token Meter: ${status.failure}`}
+          </Text>
+        </Box>
+      )
+    }
+
+    if (status.lines.length === 0) {
+      return next(e)
+    }
+
     return (
       <Box flexDirection="column">
-        {lines.map(line => (
+        {status.lines.map(line => (
           <Text wrap="truncate-end">
             {line.map(({ text, href: _href, ...style }) => (
               <Text {...style}>{text}</Text>

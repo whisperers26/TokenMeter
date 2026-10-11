@@ -92,9 +92,12 @@ describe('register', () => {
     await $.ui.mount({ ...BAND, surface: 'desktop' })
     await clock.settle()
 
-    expect(runs.map(run => [run.argv[0], run.argv[1]?.replace(/^.*[\\/]mod[\\/]/, '')])).toEqual([
-      ['node', 'engine/ccstatusline.js'],
-    ])
+    expect(
+      runs.map(run => [
+        run.argv[0],
+        run.argv[1]?.replaceAll('\\', '/').replace(/^.*\/mod\//, ''),
+      ]),
+    ).toEqual([['node', 'engine/ccstatusline.js']])
   })
 
   test("hands the engine the session's figures on standard input", async ($, on) => {

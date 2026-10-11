@@ -8,7 +8,7 @@ import { transcriptPathIn } from './transcript'
 import { flexReserveOf } from './width'
 
 /** The engine's entry point, under the plugin's own folder. */
-const ENGINE_ENTRY = 'engine/ccstatusline.js'
+const ENGINE_ENTRY = ['engine', 'ccstatusline.js'] as const
 
 /** The engine's settings file, under the home directory on every platform. */
 const ENGINE_SETTINGS = ['.config', 'ccstatusline', 'settings.json'] as const
@@ -34,7 +34,7 @@ export type StatusRequest = {
 /** The engine as an argument vector: the runtime, then its entry point. */
 export const engineOf = (host: Host, runtime: string): string[] => [
   runtime,
-  pathIn(host.root, ENGINE_ENTRY),
+  pathIn(host.root, ...ENGINE_ENTRY),
 ]
 
 /** The engine's settings file; spelled from `~` where no home is known. */

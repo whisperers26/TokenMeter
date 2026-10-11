@@ -35,6 +35,13 @@ export const USAGE: SessionUsage = {
   cost: { usd: 1.23 },
 }
 
+/**
+ * A path as the test wrote it: the host hands a hook the path resolved its
+ * own way, a drive letter and backslashes on Windows.
+ */
+const plain = (path: string) =>
+  path.replace(/^[A-Za-z]:/, '').replaceAll('\\', '/')
+
 /** A run of the engine that printed `stdout` and exited clean. */
 export const printed = (stdout: string): Ran => ({
   value: {
@@ -86,7 +93,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   )
 
   on('fs.exists', ($, e) => ({
-    value: (options.existing ?? []).includes(e.path),
+    value: (options.existing ?? []).some(path => plain(path) === plain(e.path)),
   }))
 
   on('process.run', ($, e) => {

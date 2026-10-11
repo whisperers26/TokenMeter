@@ -28,12 +28,7 @@ claude plugin install token-meter --marketplace whisperers26/TokenMeter
 
 or, inside a terminal session of Claude Code, `/plugin install token-meter --marketplace whisperers26/TokenMeter`. The desktop app's own prompt does not take `/plugin`; a plugin installed from a shell at the default user scope loads there too. Start a new desktop session and the band appears above the prompt.
 
-To run it from a clone instead, so that your edits to `mod/` load without reinstalling:
-
-```bash
-git clone https://github.com/whisperers26/TokenMeter.git
-claude plugin install token-meter --marketplace ./TokenMeter
-```
+That installs the latest release, not the tip of `main`.
 
 If you have never used ccstatusline, the band shows its default layout. To build your own, open the configuration TUI in a terminal with `npx -y ccstatusline@latest`; [docs/USAGE.md](docs/USAGE.md) covers every widget and option.
 
@@ -109,6 +104,15 @@ claude -p "/token-meter" --plugin-dir mod   # the real engine, end to end, with 
 `claude --plugin-dir mod` loads the mod from this folder for one session and reloads it as you save. It also lays Claude Code's type declarations in `mod/.claude-plugin/types`, after which `npx tsc -p mod` type-checks the mod.
 
 The engine is developed as upstream describes in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md), with [Bun](https://bun.sh): `bun install`, `bun test`, `bun run lint`. Those commands leave `mod/` alone.
+
+### Releasing
+
+An install does not take whatever is on `main`. The marketplace entry in `.claude-plugin/marketplace.json` names a release tag, and Claude Code installs the mod as it stood at that tag. To release:
+
+1. Set the new version in `mod/.claude-plugin/plugin.json`, and the same version and its tag (`token-meter--v<version>`) in `.claude-plugin/marketplace.json`. Commit and merge to `main`.
+2. `claude plugin tag mod --push` creates and pushes that tag, after checking the two files agree.
+
+Machines that already have the mod get the release from `claude plugin update token-meter@token-meter`, or by themselves where the marketplace is set to update automatically.
 
 ### Keeping up with ccstatusline
 

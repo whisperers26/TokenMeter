@@ -1,5 +1,8 @@
 package io.github.whisperers26.tokenmeter;
 
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
@@ -12,6 +15,9 @@ import java.util.regex.Pattern;
 public record Folder(Path path) {
     /** A session id as Claude Code makes them: nothing a file name cannot hold. */
     private static final Pattern FILE_NAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");
+
+    /** How long a snapshot is kept after its session last wrote it. */
+    private static final long KEPT_MS = 7L * 24 * 60 * 60 * 1000;
 
     /**
      * The folder as the mod finds it, so that both name the same place: the
@@ -40,5 +46,38 @@ public record Folder(Path path) {
         return FILE_NAME.matcher(sessionId).matches()
             ? Optional.of(path.resolve("sessions").resolve(sessionId + ".json"))
             : Optional.empty();
+    }
+
+    /**
+     * Tells the mod a reader of snapshots is here: sessions keep theirs while
+     * this is fresh.
+     *
+     * @param now the time, in milliseconds since the epoch
+     */
+    public void signLife(long now) throws IOException {
+        Files.createDirectories(path);
+        Files.writeString(reader(), Long.toString(now));
+    }
+
+    /**
+     * Drops the snapshots no session has written for a week: those of
+     * sessions long over, which nothing else clears away.
+     *
+     * @param now the time, in milliseconds since the epoch
+     */
+    public void prune(long now) throws IOException {
+        Path sessions = path.resolve("sessions");
+
+        if (!Files.isDirectory(sessions)) {
+            return;
+        }
+
+        try (DirectoryStream<Path> snapshots = Files.newDirectoryStream(sessions, "*.json")) {
+            for (Path snapshot : snapshots) {
+                if (Files.getLastModifiedTime(snapshot).toMillis() < now - KEPT_MS) {
+                    Files.deleteIfExists(snapshot);
+                }
+            }
+        }
     }
 }

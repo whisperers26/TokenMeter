@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import javax.swing.JPanel;
 
 public final class BandViewTest {
     private static final Insets INSETS = new Insets(3, 5, 3, 5);
@@ -151,5 +152,19 @@ public final class BandViewTest {
         click(view, INSETS.left + 2, INSETS.top + 2);
 
         Check.equal(List.of(), opened);
+    }
+
+    public static void takes_what_is_painted_behind_it_for_its_background() {
+        BandView alone = showing(200);
+        BandView held = showing(200);
+        JPanel wrapper = new JPanel();
+        JPanel holder = new JPanel();
+
+        wrapper.setOpaque(false);
+        wrapper.add(held);
+        holder.setBackground(Color.GREEN);
+        holder.add(wrapper);
+
+        Check.equal(List.of(Color.BLACK, Color.GREEN), List.of(alone.panel(), held.panel()));
     }
 }

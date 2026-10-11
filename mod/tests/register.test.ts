@@ -85,6 +85,19 @@ describe('register', () => {
     ])
   })
 
+  test('a band drawn before the session started is drawn again once it has', async ($, on) => {
+    const { clock } = worldOf(on)
+
+    for (const surface of ['terminal', 'desktop'] as const) {
+      const ui = await $.ui.mount({ ...BAND, surface })
+
+      await $.session.start({ ...START, surface: 'terminal' })
+      await clock.settle()
+
+      expect(rowsOf(await ui.drawn())).toHaveLength(2)
+    }
+  })
+
   test("runs the engine that ships in the plugin's own folder with node", async ($, on) => {
     const { clock, runs } = worldOf(on)
 

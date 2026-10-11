@@ -172,6 +172,10 @@ export const register: Register = (on, options) => {
       description: 'Show the status lines as text, and where they are configured',
     })
 
+    // A band drawn before this hook bound the host was passed on, and that
+    // answer stands until something asks for it again
+    $.ui.invalidate('ui.render')
+
     return next(e)
   })
 

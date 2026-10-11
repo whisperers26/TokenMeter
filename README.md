@@ -18,7 +18,7 @@ Total: 22.7M | Session: 42.5% | Reset: 1hr 59m | Weekly: 15.0% | Weekly Reset: 3
 
 ## Install
 
-You need Claude Code 2.1.275 or later, and Node.js 14 or later on your `PATH` (the mod runs the ccstatusline engine with it; [bun works too](#options)).
+You need a recent Claude Code (tested with 2.1.296) and Node.js 14 or later on your `PATH` (the mod runs the ccstatusline engine with it; [bun works too](#options)). Mods are an early-access part of Claude Code, so an update to it can change what a mod may do before this one catches up.
 
 From any shell:
 

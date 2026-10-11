@@ -1,6 +1,7 @@
 import type {
   ProcessRunInit,
   ProcessRunResult,
+  RenderSurface,
   SessionUsage,
   SessionVersion,
   Settings,
@@ -30,6 +31,8 @@ export type Host = {
   model: () => Promise<string>
   version: () => Promise<SessionVersion>
   usage: () => Promise<SessionUsage>
+  /** Every surface the session draws on; none for one an SDK host runs. */
+  surfaces: () => Promise<readonly RenderSurface[]>
   settings: () => Promise<Settings>
   exists: (path: string) => Promise<boolean>
   readFile: (path: string) => Promise<string>

@@ -104,7 +104,8 @@ export const register: Register = (on, options) => {
 
   // A session an SDK host runs has no surface to draw the band on, and what
   // hosts it reads a snapshot of the lines instead. A session is on a surface
-  // once it starts under one or one asks for the band, drawn there or not
+  // once it starts under one, one attaches, or one asks for the band, drawn
+  // there or not
   let isOnSurface = false
 
   /**
@@ -112,6 +113,11 @@ export const register: Register = (on, options) => {
    * no surface, and snapshots are read.
    */
   async function snapshotPathFor(host: Host) {
+    // A surface may have attached before this module was there to be told
+    if (!isOnSurface && (await host.surfaces()).length > 0) {
+      isOnSurface = true
+    }
+
     return isOnSurface ? undefined : snapshotPathOf(host)
   }
 
@@ -157,38 +163,31 @@ export const register: Register = (on, options) => {
     return running
   }
 
+  /**
+   * A refresh, where the lines are still shown somewhere when its turn comes:
+   * on a surface that draws the band, or in a snapshot that is read.
+   */
+  async function refreshIfShown(host: Host) {
+    if (columnsOf.size > 0 || (await snapshotPathFor(host)) !== undefined) {
+      await refresh(host)
+    }
+  }
+
   function schedule(host: Host) {
     queued ??= host.after(0, () => {
       queued = null
-      void refresh(host).catch(() => undefined)
+      void refreshIfShown(host).catch(() => undefined)
     })
   }
 
   /**
-   * Asks for fresh lines, while some surface is drawing them or the session
-   * keeps a snapshot of them.
+   * Asks for fresh lines, while some surface is drawing them or the session,
+   * on no surface, may keep a snapshot of them.
    */
   function request() {
-    if (!bound) {
-      return
+    if (bound && (columnsOf.size > 0 || !isOnSurface)) {
+      schedule(bound)
     }
-
-    const host = bound
-
-    if (columnsOf.size > 0) {
-      schedule(host)
-
-      return
-    }
-
-    void snapshotPathFor(host).then(
-      path => {
-        if (path !== undefined) {
-          schedule(host)
-        }
-      },
-      () => undefined,
-    )
   }
 
   on('session.start', async ($, e, next) => {
@@ -205,6 +204,7 @@ export const register: Register = (on, options) => {
       model: () => $.session.model(),
       version: () => $.session.version(),
       usage: () => $.session.usage(),
+      surfaces: () => $.session.surfaces(),
       settings: () => $.settings.read(),
       exists: path => $.fs.exists(path),
       readFile: path => $.fs.read(path),
@@ -256,6 +256,12 @@ export const register: Register = (on, options) => {
         settingsPath: engineSettingsPathIn(await bound.home()),
       }),
     }
+  })
+
+  on('session.attach', ($, e, next) => {
+    isOnSurface = true
+
+    return next(e)
   })
 
   on('session.detach', ($, e, next) => {

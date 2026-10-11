@@ -824,4 +824,27 @@ describe('register', () => {
 
     expect(runs).toHaveLength(2)
   })
+
+  test('a session a surface has attached to keeps no snapshot, before that surface draws', async ($, on) => {
+    const { clock, runs, writes } = worldOf(on, READ)
+
+    await $.session.start(START)
+    await $.session.attach({ surface: 'desktop', clientId: 'desktop:default' })
+    await clock.settle()
+    await $.turn.complete(TURN)
+    await clock.advance(60_000)
+
+    expect([runs, writes]).toEqual([[], []])
+  })
+
+  test('a session that draws on a surface already keeps no snapshot', async ($, on) => {
+    const { clock, runs, writes } = worldOf(on, { ...READ, surfaces: ['desktop'] })
+
+    await $.session.start(START)
+    await clock.settle()
+    await $.turn.complete(TURN)
+    await clock.advance(60_000)
+
+    expect([runs, writes]).toEqual([[], []])
+  })
 })

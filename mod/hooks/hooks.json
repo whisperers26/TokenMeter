@@ -1,0 +1,4 @@
+{
+  "description": "The status line band: the ccstatusline engine run on the session's figures, its lines drawn above the prompt",
+  "modules": ["./register.tsx"]
+}

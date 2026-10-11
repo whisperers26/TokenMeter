@@ -65,10 +65,17 @@ const scratch = mkdtempSync(join(tmpdir(), 'token-meter-engine-'));
 
 try {
     const dist = isLocal ? localDist() : releasedDist(scratch);
-    const scripts = readdirSync(dist).filter(file => file.endsWith('.js'));
+    const built = readdirSync(dist);
+    const scripts = built.filter(file => file.endsWith('.js'));
 
     if (!scripts.includes('ccstatusline.js')) {
         throw new Error(`no ccstatusline.js in ${dist}`);
+    }
+
+    // Only scripts are copied; a build that grows another kind of file must
+    // not lose it silently
+    if (scripts.length !== built.length) {
+        throw new Error(`dist holds more than scripts: ${built.filter(file => !file.endsWith('.js')).join(', ')}`);
     }
 
     rmSync(engine, { recursive: true, force: true });

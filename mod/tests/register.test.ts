@@ -296,6 +296,20 @@ describe('register', () => {
     expect(runs).toHaveLength(1)
   })
 
+  test('a band not yet measured gets the lines at their full width', async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    await $.session.start(START)
+    await $.ui.mount({
+      ...BAND,
+      surface: 'desktop',
+      props: { ...BAND.props, bodyColumns: 0 },
+    })
+    await clock.settle()
+
+    expect(runs.map(run => run.init?.env)).toEqual([undefined])
+  })
+
   test('says why in the band when the engine cannot be started', async ($, on) => {
     const { clock } = worldOf(on, { run: () => ({ deny: NO_NODE }) })
 

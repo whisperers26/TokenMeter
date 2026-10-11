@@ -77,6 +77,13 @@ export const register: Register = (on, options) => {
   /** The band's width on each surface that draws it, in character cells. */
   const columnsOf = new Map<RenderSurface, number>()
 
+  /** The narrowest band a surface has measured; undefined when none has. */
+  function narrowestBand() {
+    const measured = [...columnsOf.values()].filter(columns => columns > 0)
+
+    return measured.length === 0 ? undefined : Math.min(...measured)
+  }
+
   function note(e: ToldBy) {
     told = {
       ...told,
@@ -93,8 +100,7 @@ export const register: Register = (on, options) => {
         status = await statusOf(host, {
           runtime,
           told,
-          columns:
-            columnsOf.size === 0 ? undefined : Math.min(...columnsOf.values()),
+          columns: narrowestBand(),
         })
 
         host.invalidate()

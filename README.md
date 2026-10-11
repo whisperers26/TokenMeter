@@ -81,7 +81,9 @@ You need the mod installed in Claude Code as [above](#install), in a release tha
 "<IDE home>/jbr/bin/java" jetbrains/Build.java install
 ```
 
-`<IDE home>` is the folder the IDE is installed in, the one that holds `bin`, `lib` and `jbr` (on Windows the command is `"<IDE home>\jbr\bin\java.exe"`). That compiles the plugin, runs its tests, and puts it in that IDE's plugins folder; restart the IDE and open a chat with Claude. For another IDE, run it again with that IDE's Java. To install by hand, leave `install` out: the build writes `jetbrains/out/token-meter-<version>.zip`, which **Settings | Plugins | ⚙ | Install Plugin from Disk** takes.
+`<IDE home>` is the folder the IDE is installed in, the one that holds `lib` and `jbr`. On Windows its Java is `<IDE home>\jbr\bin\java.exe`. On macOS the IDE home is inside the application, so the Java is `/Applications/<IDE>.app/Contents/jbr/Contents/Home/bin/java`. That compiles the plugin, runs its tests, and puts it in that IDE's plugins folder; restart the IDE and open a chat with Claude. For another IDE, run it again with that IDE's Java. To install by hand, leave `install` out: the build writes `jetbrains/out/token-meter-<version>.zip`, which **Settings | Plugins | ⚙ | Install Plugin from Disk** takes.
+
+The zip is Java and holds nothing of the machine it was built on, so one built on Windows installs on macOS or Linux too, in an IDE whose AI Assistant is of the same line. It has been run on Windows only.
 
 Three things to know:
 

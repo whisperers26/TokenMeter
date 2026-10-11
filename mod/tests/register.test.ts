@@ -11,6 +11,28 @@ const START = { surface: null, isInteractive: true, cwd: '/work/app' } as const
 
 const TRANSCRIPT = '/home/me/.claude/projects/-work-app/session-1.jsonl'
 
+/** The end of a turn on the main loop, answered. */
+const TURN = {
+  answer: 'done',
+  durationMs: 1_200,
+  isAborted: false,
+  turnId: 'turn-1',
+  reason: 'answer',
+} as const
+
+/** A switch of the main loop's model from the picker. */
+const MODEL_SWITCH = {
+  from_model: 'claude-opus-5-5',
+  to_model: 'claude-sonnet-5-5',
+  requested_model: 'sonnet',
+  source: 'picker',
+  context_tokens: 183_412,
+  prompt_cache_warm: false,
+  cache_ttl: '1h',
+  estimated_cache_write_usd: 0.4,
+  pricing: 'catalog',
+} as const
+
 /** A line whose first words the engine wrapped in an OSC 8 hyperlink. */
 const LINKED_OUTPUT =
   '\x1b]8;;https://github.com/o/r/pull/7\x1b\\\x1b[32mPR #7\x1b]8;;\x1b\\ open\n'
@@ -318,6 +340,158 @@ describe('register', () => {
         ],
       ])
     }
+  })
+
+  test('runs the engine again when a turn completes', async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.turn.complete(TURN)
+    await clock.settle()
+
+    expect(runs).toHaveLength(2)
+  })
+
+  test("a subagent's turn runs nothing more", async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.turn.complete({ ...TURN, agentId: 'agent-1' })
+    await clock.settle()
+
+    expect(runs).toHaveLength(1)
+  })
+
+  test('runs the engine again every half minute', async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await clock.advance(29_000)
+
+    const before = runs.length
+
+    await clock.advance(1_000)
+    await clock.advance(30_000)
+
+    expect([before, runs.length]).toEqual([1, 3])
+  })
+
+  test(
+    'runs the engine again as often as the refresh option says',
+    { options: { refreshSeconds: 10 } },
+    async ($, on) => {
+      const { clock, runs } = worldOf(on)
+
+      await $.session.start(START)
+      await $.ui.mount({ ...BAND, surface: 'desktop' })
+      await clock.settle()
+      await clock.advance(30_000)
+
+      expect(runs).toHaveLength(4)
+    },
+  )
+
+  test(
+    'a refresh option under five seconds is held to five',
+    { options: { refreshSeconds: 1 } },
+    async ($, on) => {
+      const { clock, runs } = worldOf(on)
+
+      await $.session.start(START)
+      await $.ui.mount({ ...BAND, surface: 'desktop' })
+      await clock.settle()
+      await clock.advance(10_000)
+
+      expect(runs).toHaveLength(3)
+    },
+  )
+
+  test(
+    'a refresh option of zero leaves the timer off',
+    { options: { refreshSeconds: 0 } },
+    async ($, on) => {
+      const { clock, runs } = worldOf(on)
+
+      await $.session.start(START)
+      await $.ui.mount({ ...BAND, surface: 'desktop' })
+      await clock.settle()
+      await clock.advance(600_000)
+
+      expect(runs).toHaveLength(1)
+    },
+  )
+
+  test('runs the engine again after a compaction, a model switch and a move', async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.classic.PostCompact({ trigger: 'auto', compact_summary: 'so far' })
+    await clock.settle()
+    await $.classic.PostModelSwitch(MODEL_SWITCH)
+    await clock.settle()
+    await $.classic.CwdChanged({ old_cwd: '/work/app', new_cwd: '/work/app/src' })
+    await clock.settle()
+
+    expect(runs).toHaveLength(4)
+  })
+
+  test('runs nothing while no surface draws the band', async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    await $.session.start(START)
+    await $.turn.complete(TURN)
+    await clock.advance(120_000)
+
+    expect(runs).toEqual([])
+  })
+
+  test('stops running once the surface that drew the band detaches', async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.session.detach({ surface: 'desktop', clientId: 'desktop:default', reason: 'detach' })
+    await $.turn.complete(TURN)
+    await clock.advance(120_000)
+
+    expect(runs).toHaveLength(1)
+  })
+
+  test('a run asked for while one is under way follows it, once', async ($, on) => {
+    let release = () => {}
+
+    const { clock, runs } = worldOf(on, {
+      run: () =>
+        runs.length > 1
+          ? printed(ENGINE_OUTPUT)
+          : new Promise(resolve => {
+              release = () => resolve(printed(ENGINE_OUTPUT))
+            }),
+    })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.turn.complete(TURN)
+    await clock.settle()
+    await $.turn.complete(TURN)
+    await clock.settle()
+
+    const whileHeld = runs.length
+
+    release()
+    await clock.settle()
+
+    expect([whileHeld, runs.length]).toEqual([1, 2])
   })
 
   test('draws the lines again once the engine recovers', async ($, on) => {

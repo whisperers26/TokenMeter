@@ -7,5 +7,14 @@
     "url": "https://github.com/whisperers26"
   },
   "repository": "https://github.com/whisperers26/TokenMeter",
-  "license": "MIT"
+  "license": "MIT",
+  "userConfig": {
+    "refreshSeconds": {
+      "type": "number",
+      "title": "Refresh interval (seconds)",
+      "description": "How often the status lines are run again while nothing else refreshes them; a finished turn, a model switch, a compaction and a resized band always do. At least 5; 0 turns the timer off.",
+      "required": false,
+      "default": 30
+    }
+  }
 }

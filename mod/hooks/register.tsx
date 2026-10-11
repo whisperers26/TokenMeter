@@ -1,11 +1,35 @@
-import type { Register, RenderSurface, Settings, Timer } from 'claude-code'
+import type {
+  PluginOptions,
+  Register,
+  RenderSurface,
+  Settings,
+  Timer,
+} from 'claude-code'
 
 import { bandOf } from './band'
 import type { Host } from './host'
 import { statusOf } from './status'
 import type { Status, Told } from './status'
 
+/** How often the lines are run again while nothing else asks, in seconds. */
+const DEFAULT_REFRESH_SECONDS = 30
+
+/** The shortest period the timer takes: each tick starts a process. */
+const MIN_REFRESH_SECONDS = 5
+
 type ToldBy = { transcript_path: string; effort?: { level: string } }
+
+/** The timer's period in milliseconds; undefined with the timer off. */
+function refreshMsOf({ refreshSeconds }: PluginOptions): number | undefined {
+  const seconds =
+    typeof refreshSeconds === 'number' && Number.isFinite(refreshSeconds)
+      ? refreshSeconds
+      : DEFAULT_REFRESH_SECONDS
+
+  return seconds > 0
+    ? Math.max(MIN_REFRESH_SECONDS, seconds) * 1000
+    : undefined
+}
 
 /** Whether Claude Code's settings run a status line command of their own. */
 function hasOwnStatusLine({ statusLine }: Settings): boolean {
@@ -17,10 +41,15 @@ function hasOwnStatusLine({ statusLine }: Settings): boolean {
   return typeof command === 'string' && command.trim() !== ''
 }
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  const refreshMs = refreshMsOf(options)
+
   let bound: Host | null = null
   let status: Status | null = null
   let queued: Timer | null = null
+  let ticking: Timer | null = null
+  let isRunning = false
+  let isStale = false
   let told: Told = {}
 
   // A terminal that runs a status line of its own already shows these lines
@@ -41,13 +70,34 @@ export const register: Register = on => {
     }
   }
 
+  /**
+   * Runs the engine and redraws the band with what it printed. One run at a
+   * time: a refresh asked for meanwhile is answered by one more run after it.
+   */
   async function refresh(host: Host) {
-    status = await statusOf(host, {
-      told,
-      columns: columnsOf.size === 0 ? undefined : Math.min(...columnsOf.values()),
-    })
+    if (isRunning) {
+      isStale = true
 
-    host.invalidate()
+      return
+    }
+
+    isRunning = true
+
+    try {
+      do {
+        isStale = false
+
+        status = await statusOf(host, {
+          told,
+          columns:
+            columnsOf.size === 0 ? undefined : Math.min(...columnsOf.values()),
+        })
+
+        host.invalidate()
+      } while (isStale)
+    } finally {
+      isRunning = false
+    }
   }
 
   function schedule(host: Host) {
@@ -57,11 +107,19 @@ export const register: Register = on => {
     })
   }
 
+  /** Asks for fresh lines, while some surface is drawing them. */
+  function request() {
+    if (bound && columnsOf.size > 0) {
+      schedule(bound)
+    }
+  }
+
   on('session.start', async ($, e, next) => {
     bound = {
       root: $.plugin.root,
       now: () => $.clock.now(),
       after: (ms, fn) => $.clock.after(ms, fn),
+      every: (ms, fn) => $.clock.every(ms, fn),
       run: (argv, init) => $.process.run(argv, init),
       invalidate: () => $.ui.invalidate('ui.render'),
       sessionId: () => $.session.id(),
@@ -83,11 +141,50 @@ export const register: Register = on => {
       () => false,
     )
 
+    ticking?.cancel()
+    ticking = refreshMs === undefined ? null : bound.every(refreshMs, request)
+
+    return next(e)
+  })
+
+  on('session.detach', ($, e, next) => {
+    columnsOf.delete(e.surface)
+
+    return next(e)
+  })
+
+  on('turn.complete', ($, e, next) => {
+    if (e.agentId === undefined) {
+      request()
+    }
+
     return next(e)
   })
 
   on('classic.SessionStart', ($, e, next) => {
     note(e)
+    request()
+
+    return next(e)
+  })
+
+  on('classic.PostCompact', ($, e, next) => {
+    note(e)
+    request()
+
+    return next(e)
+  })
+
+  on('classic.PostModelSwitch', ($, e, next) => {
+    note(e)
+    request()
+
+    return next(e)
+  })
+
+  on('classic.CwdChanged', ($, e, next) => {
+    note(e)
+    request()
 
     return next(e)
   })

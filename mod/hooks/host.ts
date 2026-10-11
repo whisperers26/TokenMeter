@@ -18,6 +18,7 @@ export type Host = {
   root: string
   now: () => Promise<number>
   after: (ms: number, fn: () => void) => Timer
+  every: (ms: number, fn: () => void) => Timer
   run: (
     argv: readonly string[],
     init?: ProcessRunInit,

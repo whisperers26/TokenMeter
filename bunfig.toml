@@ -1,0 +1,3 @@
+# The mod's tests run under `claude plugin test mod`, not bun
+[test]
+root = "src"

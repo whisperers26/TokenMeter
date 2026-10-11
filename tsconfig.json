@@ -27,5 +27,8 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
-  }
+  },
+
+  // The mod is a Claude Code hooks module, typed by mod/tsconfig.json
+  "exclude": ["node_modules", "mod"]
 }

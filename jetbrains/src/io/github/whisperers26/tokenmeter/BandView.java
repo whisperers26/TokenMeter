@@ -7,6 +7,7 @@ import io.github.whisperers26.tokenmeter.Snapshot.Span;
 import io.github.whisperers26.tokenmeter.Snapshot.Trait;
 import java.awt.AlphaComposite;
 import java.awt.Color;
+import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -103,6 +104,20 @@ public final class BandView extends JComponent {
         hovered = null;
         revalidate();
         repaint();
+    }
+
+    /**
+     * The colour the band is drawn on: the band paints none of its own, so it
+     * is that of the nearest thing behind it that does.
+     */
+    Color panel() {
+        for (Container behind = getParent(); behind != null; behind = behind.getParent()) {
+            if (behind.isOpaque()) {
+                return behind.getBackground();
+            }
+        }
+
+        return look.panel();
     }
 
     /** The height one line of text is given. */
@@ -252,7 +267,7 @@ public final class BandView extends JComponent {
     private void paint(Graphics2D graphics, Drawn one, int x, int top, int lineHeight) {
         Span span = one.placed().span();
         int width = one.placed().width();
-        Color panel = look.panel();
+        Color panel = panel();
 
         Color behind = span.background() == null ? null : new Color(span.background());
 

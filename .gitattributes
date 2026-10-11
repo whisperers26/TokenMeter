@@ -1,3 +1,7 @@
 # The engine the mod runs is ccstatusline's published build, vendored by
 # mod/scripts/sync-engine.mjs: kept byte for byte, out of diffs and language stats
 mod/engine/*.js linguist-vendored -diff -text
+
+# This fork's own README: a merge from upstream keeps it, in a clone that ran
+# `git config merge.ours.driver true`; elsewhere it merges like any file
+README.md merge=ours

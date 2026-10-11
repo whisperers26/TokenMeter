@@ -12,6 +12,18 @@ const START = { surface: null, isInteractive: true, cwd: '/work/app' } as const
 /** A session under a terminal that runs no status line of its own. */
 const TERMINAL = { ...START, surface: 'terminal' } as const
 
+/** A session an SDK host runs for an IDE: no surface, nobody at the prompt. */
+const HOSTED = { ...START, isInteractive: false } as const
+
+/** The world's time as a test starts. */
+const NOW = 1_700_000_900_000
+
+/** A world where a reader of snapshots was there a minute ago. */
+const READ = { readerSeenAt: NOW - 60_000 } as const
+
+/** The session's snapshot file. */
+const SNAPSHOT = '/home/me/.cache/token-meter/sessions/session-1.json'
+
 const TRANSCRIPT = '/home/me/.claude/projects/-work-app/session-1.jsonl'
 
 /** `/token-meter` as the person types it, where no terminal has measured. */
@@ -63,6 +75,10 @@ const stdinOf = (runs: World['runs'], at = 0): unknown =>
 
 /** The width the mod told the engine for one run. */
 const widthOf = (run: World['runs'][number]) => run.init?.env?.CCSTATUSLINE_WIDTH
+
+/** The snapshot the mod kept on its `at`th write, non-breaking spaces plain. */
+const keptIn = (writes: World['writes'], at = 0): unknown =>
+  JSON.parse((writes[at]?.text ?? 'null').replaceAll(' ', ' '))
 
 describe('register', () => {
   test("draws the engine's lines in the band on desktop", async ($, on) => {
@@ -676,5 +692,136 @@ describe('register', () => {
     await clock.settle()
 
     expect(rowsOf(await ui.drawn())).toHaveLength(2)
+  })
+
+  test('keeps a snapshot of the lines for a session no surface draws, while a reader is there', async ($, on) => {
+    const { clock, writes } = worldOf(on, READ)
+
+    await $.session.start(HOSTED)
+    await clock.settle()
+
+    expect([writes.map(write => write.path), keptIn(writes)]).toEqual([
+      [SNAPSHOT],
+      {
+        version: 1,
+        sessionId: 'session-1',
+        updatedAt: NOW,
+        freshUntil: NOW + 90_000,
+        rows: [
+          {
+            groups: [
+              [
+                { text: 'Model: Opus 5.5', color: '#008787' },
+                { text: ' | ' },
+                { text: 'Ctx: 183.4k', color: '#5f5f5f' },
+              ],
+            ],
+          },
+          {
+            groups: [
+              [
+                { text: 'Total: 22.7M', color: '#008787' },
+                { text: ' | ' },
+                { text: 'Session: 42.5%', color: '#87afff' },
+              ],
+            ],
+          },
+        ],
+      },
+    ])
+  })
+
+  test('keeps the snapshot again when a turn completes', async ($, on) => {
+    const { clock, writes } = worldOf(on, READ)
+
+    await $.session.start(HOSTED)
+    await clock.settle()
+    await $.turn.complete(TURN)
+    await clock.settle()
+
+    expect(writes.map(write => write.path)).toEqual([SNAPSHOT, SNAPSHOT])
+  })
+
+  test('keeps the snapshot again every half minute', async ($, on) => {
+    const { clock, writes } = worldOf(on, READ)
+
+    await $.session.start(HOSTED)
+    await clock.settle()
+    await clock.advance(30_000)
+
+    expect(writes).toHaveLength(2)
+  })
+
+  test(
+    'a snapshot names no end to its freshness with the timer off',
+    { options: { refreshSeconds: 0 } },
+    async ($, on) => {
+      const { clock, writes } = worldOf(on, READ)
+
+      await $.session.start(HOSTED)
+      await clock.settle()
+
+      expect([
+        writes.length,
+        Object.keys((keptIn(writes) ?? {}) as object).includes('freshUntil'),
+      ]).toEqual([1, false])
+    },
+  )
+
+  test('keeps no snapshot once its reader has been gone five minutes', async ($, on) => {
+    const { clock, runs, writes } = worldOf(on, { readerSeenAt: NOW - 301_000 })
+
+    await $.session.start(HOSTED)
+    await $.turn.complete(TURN)
+    await clock.advance(120_000)
+
+    expect([runs, writes]).toEqual([[], []])
+  })
+
+  test('runs the engine for a snapshot at a width no line reaches', async ($, on) => {
+    const { clock, runs } = worldOf(on, READ)
+
+    await $.session.start(HOSTED)
+    await clock.settle()
+
+    expect(runs.map(widthOf)).toEqual(['1006'])
+  })
+
+  test('a session a surface comes to draw keeps no snapshot from then on', async ($, on) => {
+    const { clock, writes } = worldOf(on, READ)
+
+    await $.session.start(HOSTED)
+    await clock.settle()
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.session.detach({ surface: 'desktop', clientId: 'desktop:default', reason: 'detach' })
+    await $.turn.complete(TURN)
+    await clock.settle()
+
+    expect(writes).toHaveLength(1)
+  })
+
+  test('a snapshot that cannot be written does not cost the run that follows', async ($, on) => {
+    let release = () => {}
+
+    const { clock, runs } = worldOf(on, {
+      ...READ,
+      write: () => ({ deny: 'EACCES: permission denied' }),
+      run: () =>
+        runs.length > 1
+          ? printed(ENGINE_OUTPUT)
+          : new Promise(resolve => {
+              release = () => resolve(printed(ENGINE_OUTPUT))
+            }),
+    })
+
+    await $.session.start(HOSTED)
+    await clock.settle()
+    await $.turn.complete(TURN)
+    await clock.settle()
+    release()
+    await clock.settle()
+
+    expect(runs).toHaveLength(2)
   })
 })

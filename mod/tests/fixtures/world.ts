@@ -21,6 +21,8 @@ export type WorldOptions = {
 export type World = {
   /** Every run of the engine the mod asked for, oldest first. */
   runs: Args<'process.run'>[]
+  /** Every file the mod read, as the test would spell its path. */
+  reads: string[]
   clock: MockClock
 }
 
@@ -63,6 +65,7 @@ export const printed = (stdout: string): Ran => ({
  */
 export function worldOf(on: On, options: WorldOptions = {}): World {
   const runs: Args<'process.run'>[] = []
+  const reads: string[] = []
   const clock = mock.clock(on, { now: USAGE.startedAt + 900_000 })
 
   mock.env(on, { HOME: '/home/me' })
@@ -86,11 +89,13 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   on('classic.PostModelSwitch', () => ({}))
   on('classic.CwdChanged', () => ({}))
 
-  on('fs.read', ($, e) =>
-    options.engineSettings === undefined
+  on('fs.read', ($, e) => {
+    reads.push(plain(e.path))
+
+    return options.engineSettings === undefined
       ? { deny: `ENOENT: no such file or directory, open '${e.path}'` }
-      : { value: options.engineSettings },
-  )
+      : { value: options.engineSettings }
+  })
 
   on('fs.exists', ($, e) => ({
     value: (options.existing ?? []).some(path => plain(path) === plain(e.path)),
@@ -106,5 +111,5 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     $.ui.resolve(e).Box({}),
   )
 
-  return { runs, clock }
+  return { runs, reads, clock }
 }

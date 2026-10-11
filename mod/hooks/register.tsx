@@ -15,9 +15,13 @@ import { pathIn } from './path-in'
 import { payloadOf } from './payload'
 import type { SessionFacts } from './payload'
 import { transcriptPathIn } from './transcript'
+import { flexReserveOf } from './width'
 
 /** The engine's entry point, under the plugin's own folder. */
 const ENGINE_ENTRY = 'engine/ccstatusline.js'
+
+/** The engine's settings file, under the home directory on every platform. */
+const ENGINE_SETTINGS = ['.config', 'ccstatusline', 'settings.json'] as const
 
 /**
  * What the mod asks of the engine it runs in, bound once at `session.start`
@@ -40,6 +44,7 @@ type Host = {
   usage: () => Promise<SessionUsage>
   settings: () => Promise<Settings>
   exists: (path: string) => Promise<boolean>
+  readFile: (path: string) => Promise<string>
   configDir: () => Promise<string | undefined>
   home: () => Promise<string | undefined>
 }
@@ -71,6 +76,9 @@ export const register: Register = on => {
 
   const drawsOn = (surface: RenderSurface) =>
     surface === 'desktop' || (surface === 'terminal' && isTerminalFree)
+
+  /** The band's width on each surface that draws it, in character cells. */
+  const columnsOf = new Map<RenderSurface, number>()
 
   function note(e: ToldBy) {
     told = {
@@ -134,11 +142,37 @@ export const register: Register = on => {
     }
   }
 
+  /**
+   * The width to tell the engine so that its lines fill the narrowest band
+   * drawn: that band's columns, plus what the engine will hold back of them.
+   */
+  async function widthOf(engine: Host, contextPercent: number | undefined) {
+    if (columnsOf.size === 0) {
+      return undefined
+    }
+
+    const home = await engine.home()
+
+    const settingsText =
+      home === undefined
+        ? undefined
+        : await engine
+            .readFile(pathIn(home, ...ENGINE_SETTINGS))
+            .catch(() => undefined)
+
+    return (
+      Math.min(...columnsOf.values()) +
+      flexReserveOf(settingsText, contextPercent)
+    )
+  }
+
   async function refresh(engine: Host) {
-    const payload = payloadOf(await factsOf(engine))
+    const facts = await factsOf(engine)
+    const width = await widthOf(engine, facts.usage.context.percent)
 
     const ran = await engine.run(['node', pathIn(engine.root, ENGINE_ENTRY)], {
-      stdin: JSON.stringify(payload),
+      stdin: JSON.stringify(payloadOf(facts)),
+      ...(width !== undefined && { env: { CCSTATUSLINE_WIDTH: String(width) } }),
     })
 
     lines = parseAnsi(ran.stdout)
@@ -167,6 +201,7 @@ export const register: Register = on => {
       usage: () => $.session.usage(),
       settings: () => $.settings.read(),
       exists: path => $.fs.exists(path),
+      readFile: path => $.fs.read(path),
       configDir: () => $.env.get('CLAUDE_CONFIG_DIR'),
       home: async () =>
         (await $.env.get('USERPROFILE')) ?? (await $.env.get('HOME')),
@@ -203,9 +238,15 @@ export const register: Register = on => {
       return next(e)
     }
 
-    if (lines === null) {
-      schedule(host)
+    const isResized = columnsOf.get(e.surface) !== e.props.bodyColumns
 
+    columnsOf.set(e.surface, e.props.bodyColumns)
+
+    if (isResized || lines === null) {
+      schedule(host)
+    }
+
+    if (lines === null) {
       return next(e)
     }
 

@@ -19,6 +19,9 @@ const OWN_STATUS_LINE = {
 const stdinOf = (runs: World['runs'], at = 0): unknown =>
   JSON.parse(runs[at]?.init?.stdin ?? 'null')
 
+/** The width the mod told the engine for one run. */
+const widthOf = (run: World['runs'][number]) => run.init?.env?.CCSTATUSLINE_WIDTH
+
 describe('register', () => {
   test("draws the engine's lines in the band on desktop", async ($, on) => {
     const { clock } = worldOf(on)
@@ -173,5 +176,58 @@ describe('register', () => {
     await clock.settle()
 
     expect(rowsOf(await ui.drawn())).toHaveLength(2)
+  })
+
+  test("tells the engine the band's width plus its flex reserve", async ($, on) => {
+    const { clock, runs, reads } = worldOf(on, {
+      engineSettings: JSON.stringify({ flexMode: 'full-minus-40' }),
+    })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+
+    expect([reads, runs.map(widthOf)]).toEqual([
+      ['/home/me/.config/ccstatusline/settings.json'],
+      ['140'],
+    ])
+  })
+
+  test("reserves the engine's default when it has no settings file", async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+
+    expect(runs.map(widthOf)).toEqual(['106'])
+  })
+
+  test("runs the engine again when the band's width changes", async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    await $.session.start(START)
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+
+    await clock.settle()
+    await ui.redraw({ ...BAND.props, bodyColumns: 80 })
+    await clock.settle()
+
+    expect(runs.map(widthOf)).toEqual(['106', '86'])
+  })
+
+  test('a redraw at the same width runs nothing more', async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    await $.session.start(START)
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+
+    await clock.settle()
+    await ui.redraw({ ...BAND.props, isWorking: true })
+    await clock.settle()
+
+    expect(runs).toHaveLength(1)
   })
 })

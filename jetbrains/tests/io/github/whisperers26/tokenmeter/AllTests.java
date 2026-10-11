@@ -13,7 +13,7 @@ import java.util.List;
  * throwing. The IDE ships no test framework to run them with.
  */
 public final class AllTests {
-    private static final List<Class<?>> SUITES = List.of(SnapshotTest.class);
+    private static final List<Class<?>> SUITES = List.of(FolderTest.class, SnapshotTest.class);
 
     private AllTests() {
     }

@@ -1,6 +1,13 @@
 import type { Line } from './ansi'
 import { groupsOf } from './groups'
+import { pathIn } from './path-in'
 import type { Status } from './status'
+
+/**
+ * The folder snapshots and their reader's sign of life are kept in, under
+ * the home directory on every platform, as the engine's settings are.
+ */
+const FOLDER = ['.cache', 'token-meter'] as const
 
 /** The run a snapshot is of. */
 export type SnapshotRun = {
@@ -29,6 +36,17 @@ export type Snapshot = {
   updatedAt: number
   freshUntil?: number
 } & ({ rows: { groups: Line[] }[] } | { failure: string })
+
+/**
+ * The file a reader of snapshots keeps its sign of life in: the time it was
+ * last there, in milliseconds since the epoch, as text.
+ */
+export const readerPathIn = (home: string): string =>
+  pathIn(home, ...FOLDER, 'reader')
+
+/** A session's snapshot: one file, named for the session. */
+export const snapshotPathIn = (home: string, sessionId: string): string =>
+  pathIn(home, ...FOLDER, 'sessions', `${sessionId}.json`)
 
 /**
  * The snapshot of one run of the engine.

@@ -167,4 +167,53 @@ public final class BandViewTest {
 
         Check.equal(List.of(Color.BLACK, Color.GREEN), List.of(alone.panel(), held.panel()));
     }
+
+    public static void lays_its_rows_out_again_when_the_themes_font_changes() {
+        int[] size = {12};
+
+        Look look = new Look() {
+            @Override
+            public Font font() {
+                return new Font(Font.MONOSPACED, Font.PLAIN, size[0]);
+            }
+
+            @Override
+            public Color text() {
+                return LOOK.text();
+            }
+
+            @Override
+            public Color panel() {
+                return LOOK.panel();
+            }
+
+            @Override
+            public int gap() {
+                return LOOK.gap();
+            }
+
+            @Override
+            public Insets insets() {
+                return INSETS;
+            }
+
+            @Override
+            public void prepare(Graphics2D graphics) {
+            }
+        };
+
+        BandView view = new BandView(look, address -> { });
+
+        view.show(List.of(row(span("Model: Opus 5.5"), span(" | "), span("Thinking: high"))), false);
+        view.setSize(400, 100);
+
+        boolean fitsOneLine = view.getPreferredSize().height == INSETS.top + view.lineHeight() + INSETS.bottom;
+
+        size[0] = 40;
+
+        boolean wrapsInTheLargerFont =
+            view.getPreferredSize().height >= INSETS.top + 2 * view.lineHeight() + INSETS.bottom;
+
+        Check.equal(List.of(true, true), List.of(fitsOneLine, wrapsInTheLargerFont));
+    }
 }

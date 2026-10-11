@@ -18,6 +18,7 @@ public final class AllTests {
         ContrastTest.class,
         FolderTest.class,
         RowLayoutTest.class,
+        SnapshotReaderTest.class,
         SnapshotTest.class);
 
     private AllTests() {

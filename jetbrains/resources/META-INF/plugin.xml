@@ -12,4 +12,8 @@
 
   <depends>com.intellij.modules.platform</depends>
   <depends>com.intellij.ml.llm</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <ml.llm.chatPanelComponentProvider implementation="io.github.whisperers26.tokenmeter.BandProvider"/>
+  </extensions>
 </idea-plugin>

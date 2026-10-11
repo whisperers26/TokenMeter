@@ -8,8 +8,12 @@ import type {
 
 import { bandOf } from './band'
 import type { Host } from './host'
-import { statusOf } from './status'
+import { reportOf } from './report'
+import { engineOf, engineSettingsPathIn, statusOf } from './status'
 import type { Status, Told } from './status'
+
+/** The slash command that reports the lines as text. */
+const COMMAND = 'token-meter'
 
 /** What runs the engine unless the person names another runtime. */
 const DEFAULT_RUNTIME = 'node'
@@ -59,7 +63,7 @@ export const register: Register = (on, options) => {
   let status: Status | null = null
   let queued: Timer | null = null
   let ticking: Timer | null = null
-  let isRunning = false
+  let running: Promise<void> | null = null
   let isStale = false
   let told: Told = {}
 
@@ -81,19 +85,7 @@ export const register: Register = (on, options) => {
     }
   }
 
-  /**
-   * Runs the engine and redraws the band with what it printed. One run at a
-   * time: a refresh asked for meanwhile is answered by one more run after it.
-   */
-  async function refresh(host: Host) {
-    if (isRunning) {
-      isStale = true
-
-      return
-    }
-
-    isRunning = true
-
+  async function run(host: Host) {
     try {
       do {
         isStale = false
@@ -108,8 +100,24 @@ export const register: Register = (on, options) => {
         host.invalidate()
       } while (isStale)
     } finally {
-      isRunning = false
+      running = null
     }
+  }
+
+  /**
+   * Runs the engine and redraws the band with what it printed. One run at a
+   * time: a refresh asked for meanwhile is answered by one more run after it.
+   *
+   * @returns settles once no run is under way and none is owed
+   */
+  function refresh(host: Host): Promise<void> {
+    if (running) {
+      isStale = true
+    } else {
+      running = run(host)
+    }
+
+    return running
   }
 
   function schedule(host: Host) {
@@ -156,7 +164,27 @@ export const register: Register = (on, options) => {
     ticking?.cancel()
     ticking = refreshMs === undefined ? null : bound.every(refreshMs, request)
 
+    await $.command.register({
+      name: COMMAND,
+      description: 'Show the status lines as text, and where they are configured',
+    })
+
     return next(e)
+  })
+
+  on('command.run', { command: 'token-meter' }, async () => {
+    if (!bound) {
+      return { text: 'Token Meter: the session has not started' }
+    }
+
+    await refresh(bound)
+
+    return {
+      text: reportOf(status ?? { failure: 'the engine has not run' }, {
+        engine: engineOf(bound, runtime),
+        settingsPath: engineSettingsPathIn(await bound.home()),
+      }),
+    }
   })
 
   on('session.detach', ($, e, next) => {

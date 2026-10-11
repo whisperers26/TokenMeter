@@ -37,6 +37,10 @@ export const engineOf = (host: Host, runtime: string): string[] => [
   pathIn(host.root, ENGINE_ENTRY),
 ]
 
+/** The engine's settings file; spelled from `~` where no home is known. */
+export const engineSettingsPathIn = (home: string | undefined): string =>
+  pathIn(home ?? '~', ...ENGINE_SETTINGS)
+
 /**
  * The session's transcript: the one an event named, else the file Claude
  * Code would have written for this session, when it is there.
@@ -112,9 +116,7 @@ async function widthOf(
   const settingsText =
     home === undefined
       ? undefined
-      : await host
-          .readFile(pathIn(home, ...ENGINE_SETTINGS))
-          .catch(() => undefined)
+      : await host.readFile(engineSettingsPathIn(home)).catch(() => undefined)
 
   return columns + flexReserveOf(settingsText, contextPercent)
 }

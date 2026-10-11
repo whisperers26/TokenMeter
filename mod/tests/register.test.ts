@@ -11,6 +11,14 @@ const START = { surface: null, isInteractive: true, cwd: '/work/app' } as const
 
 const TRANSCRIPT = '/home/me/.claude/projects/-work-app/session-1.jsonl'
 
+/** `/token-meter` as the person types it, where no terminal has measured. */
+const COMMAND = {
+  command: 'token-meter',
+  args: '',
+  origin: { kind: 'composer' },
+  presentation: { isFullscreen: false, columns: 80 },
+} as const
+
 /** The end of a turn on the main loop, answered. */
 const TURN = {
   answer: 'done',
@@ -521,6 +529,39 @@ describe('register', () => {
       expect(runs.map(run => run.argv[0])).toEqual(['node'])
     },
   )
+
+  test('/token-meter runs the engine and reports its lines as text', async ($, on) => {
+    const { runs } = worldOf(on)
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run(COMMAND)
+
+    expect([runs.length, text?.split('\n').slice(0, 2)]).toEqual([
+      1,
+      ['Model: Opus 5.5 | Ctx: 183.4k', 'Total: 22.7M | Session: 42.5%'],
+    ])
+  })
+
+  test('/token-meter says why when the engine did not run', async ($, on) => {
+    worldOf(on, { run: () => ({ deny: NO_NODE }) })
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run(COMMAND)
+
+    expect(text).toMatch(/^Token Meter: the engine did not run \(.*ENOENT/)
+  })
+
+  test("/token-meter names the engine's settings file under the home directory", async ($, on) => {
+    worldOf(on)
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run(COMMAND)
+
+    expect(text).toContain('/home/me/.config/ccstatusline/settings.json')
+  })
 
   test('draws the lines again once the engine recovers', async ($, on) => {
     let isBroken = true

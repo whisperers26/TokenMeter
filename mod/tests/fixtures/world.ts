@@ -13,9 +13,16 @@ export type WorldOptions = {
   settings?: Settings
   /** The engine's own settings file as text; left out, there is none. */
   engineSettings?: string
+  /**
+   * When a reader of snapshots was last there, in milliseconds since the
+   * epoch: what its sign of life file holds. Left out, there is no such file.
+   */
+  readerSeenAt?: number
   usage?: SessionUsage
   /** The paths `$.fs.exists` finds. */
   existing?: readonly string[]
+  /** How a write ends; left out, the file is written. */
+  write?: (e: Args<'fs.write'>) => EventResult<'fs.write'>
 }
 
 export type World = {
@@ -23,6 +30,8 @@ export type World = {
   runs: Args<'process.run'>[]
   /** Every file the mod read, as the test would spell its path. */
   reads: string[]
+  /** Every file the mod wrote, its path spelled the same way, oldest first. */
+  writes: { path: string; text: string }[]
   clock: MockClock
 }
 
@@ -36,6 +45,9 @@ export const USAGE: SessionUsage = {
   ],
   cost: { usd: 1.23 },
 }
+
+/** The file a reader of snapshots keeps its sign of life in. */
+const READER = '/home/me/.cache/token-meter/reader'
 
 /** The key of the band Claude Code draws when the mod draws none. */
 const OWN_BAND = 'claude-code-own-band'
@@ -79,11 +91,12 @@ export const exited = (exitCode: number, stderr: string): Ran => ({
  *
  * @param on the test's `on`
  * @param options what differs from that world in this test
- * @returns the engine runs recorded so far, and the clock
+ * @returns the engine runs and the files read and written so far, and the clock
  */
 export function worldOf(on: On, options: WorldOptions = {}): World {
   const runs: Args<'process.run'>[] = []
   const reads: string[] = []
+  const writes: World['writes'] = []
   const clock = mock.clock(on, { now: USAGE.startedAt + 900_000 })
 
   mock.env(on, { HOME: '/home/me' })
@@ -110,14 +123,25 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   on('fs.read', ($, e) => {
     reads.push(plain(e.path))
 
-    return options.engineSettings === undefined
+    const text =
+      plain(e.path) === READER
+        ? options.readerSeenAt?.toString()
+        : options.engineSettings
+
+    return text === undefined
       ? { deny: `ENOENT: no such file or directory, open '${e.path}'` }
-      : { value: options.engineSettings }
+      : { value: text }
   })
 
   on('fs.exists', ($, e) => ({
     value: (options.existing ?? []).some(path => plain(path) === plain(e.path)),
   }))
+
+  on('fs.write', ($, e) => {
+    writes.push({ path: plain(e.path), text: e.text })
+
+    return options.write?.(e) ?? { value: undefined }
+  })
 
   on('process.run', ($, e) => {
     runs.push(e)
@@ -129,5 +153,5 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     $.ui.resolve(e).Box({ key: OWN_BAND }),
   )
 
-  return { runs, reads, clock }
+  return { runs, reads, writes, clock }
 }

@@ -33,6 +33,7 @@ export type Host = {
   settings: () => Promise<Settings>
   exists: (path: string) => Promise<boolean>
   readFile: (path: string) => Promise<string>
+  writeFile: (path: string, text: string) => Promise<void>
   /** `CLAUDE_CONFIG_DIR`, when the person moved Claude Code's config. */
   configDir: () => Promise<string | undefined>
   /** The person's home directory, when the environment names one. */

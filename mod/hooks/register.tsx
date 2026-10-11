@@ -9,6 +9,7 @@ import type {
 import { bandOf } from './band'
 import type { Host } from './host'
 import { reportOf } from './report'
+import { keepSnapshot, snapshotPathOf } from './snapshot'
 import { engineOf, engineSettingsPathIn, statusOf } from './status'
 import type { Status, Told } from './status'
 
@@ -23,6 +24,12 @@ const UNBOUNDED_COLUMNS = 1000
 
 /** The shortest period the timer takes: each tick starts a process. */
 const MIN_REFRESH_SECONDS = 5
+
+/**
+ * How many of the timer's periods a snapshot's lines stay fresh for: a run
+ * may come late, and one may be lost.
+ */
+const FRESH_PERIODS = 3
 
 type ToldBy = { transcript_path: string; effort?: { level: string } }
 
@@ -59,6 +66,9 @@ export const register: Register = (on, options) => {
   const refreshMs = refreshMsOf(options)
   const runtime = runtimeOf(options)
 
+  const freshFor =
+    refreshMs === undefined ? undefined : FRESH_PERIODS * refreshMs
+
   let bound: Host | null = null
   let status: Status | null = null
   let queued: Timer | null = null
@@ -92,18 +102,39 @@ export const register: Register = (on, options) => {
     }
   }
 
+  // A session an SDK host runs has no surface to draw the band on, and what
+  // hosts it reads a snapshot of the lines instead. A session is on a surface
+  // once it starts under one or one asks for the band, drawn there or not
+  let isOnSurface = false
+
+  /**
+   * Where the session's snapshot goes, when it keeps one: the session is on
+   * no surface, and snapshots are read.
+   */
+  async function snapshotPathFor(host: Host) {
+    return isOnSurface ? undefined : snapshotPathOf(host)
+  }
+
   async function run(host: Host) {
     try {
       do {
         isStale = false
 
-        status = await statusOf(host, {
-          runtime,
-          told,
-          columns: narrowestBand(),
-        })
+        const snapshotPath = await snapshotPathFor(host)
+
+        // A snapshot's reader lays the lines out itself, as the desktop app
+        // does: for it too the engine is given room no line reaches
+        const columns =
+          narrowestBand() ??
+          (snapshotPath === undefined ? undefined : UNBOUNDED_COLUMNS)
+
+        status = await statusOf(host, { runtime, told, columns })
 
         host.invalidate()
+
+        if (snapshotPath !== undefined) {
+          await keepSnapshot(host, snapshotPath, status, freshFor)
+        }
       } while (isStale)
     } finally {
       running = null
@@ -133,11 +164,31 @@ export const register: Register = (on, options) => {
     })
   }
 
-  /** Asks for fresh lines, while some surface is drawing them. */
+  /**
+   * Asks for fresh lines, while some surface is drawing them or the session
+   * keeps a snapshot of them.
+   */
   function request() {
-    if (bound && columnsOf.size > 0) {
-      schedule(bound)
+    if (!bound) {
+      return
     }
+
+    const host = bound
+
+    if (columnsOf.size > 0) {
+      schedule(host)
+
+      return
+    }
+
+    void snapshotPathFor(host).then(
+      path => {
+        if (path !== undefined) {
+          schedule(host)
+        }
+      },
+      () => undefined,
+    )
   }
 
   on('session.start', async ($, e, next) => {
@@ -157,10 +208,13 @@ export const register: Register = (on, options) => {
       settings: () => $.settings.read(),
       exists: path => $.fs.exists(path),
       readFile: path => $.fs.read(path),
+      writeFile: (path, text) => $.fs.write(path, text),
       configDir: () => $.env.get('CLAUDE_CONFIG_DIR'),
       home: async () =>
         (await $.env.get('USERPROFILE')) ?? (await $.env.get('HOME')),
     }
+
+    isOnSurface ||= e.surface !== null
 
     isTerminalFree = await $.settings.read().then(
       settings => !hasOwnStatusLine(settings),
@@ -182,6 +236,9 @@ export const register: Register = (on, options) => {
     // A band drawn before this hook bound the host was passed on, and that
     // answer stands until something asks for it again
     $.ui.invalidate('ui.render')
+
+    // Where nothing draws, a snapshot's reader is shown the lines from the start
+    request()
 
     return next(e)
   })
@@ -256,6 +313,8 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, ($, e, next) => {
+    isOnSurface = true
+
     if (!bound || e.props.hasSurvey || !drawsOn(e.surface)) {
       return next(e)
     }

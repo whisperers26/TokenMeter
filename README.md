@@ -14,7 +14,8 @@ Total: 22.7M | Session: 42.5% | Reset: 1hr 59m | Weekly: 15.0% | Weekly Reset: 3
 
 - **Desktop app**: your ccstatusline layout, with its widgets, colours, links and as many lines as you configured, refreshed after every turn and on a timer.
 - **Terminal**: ccstatusline exactly as before. The engine under `src/` is unmodified upstream code, so the `statusLine` command, the configuration TUI and every widget work as the [ccstatusline docs](docs/USAGE.md) describe.
-- **One layout for both**: the mod reads the same `~/.config/ccstatusline/settings.json` the terminal does.
+- **JetBrains IDEs**: the same lines above the input of an AI Assistant chat with Claude, drawn by a small plugin you [build and install yourself](#jetbrains-ides).
+- **One layout for all**: the mod reads the same `~/.config/ccstatusline/settings.json` the terminal does.
 
 ## Install
 
@@ -41,6 +42,7 @@ There is nothing to do: the band draws itself wherever the mod is enabled.
 | Desktop app | The mod, in the band above the prompt |
 | Terminal with a `statusLine` in your Claude Code settings | That command, under the prompt, as always; the mod stays out of the way |
 | Terminal with no `statusLine` | The mod, in the band above the prompt |
+| JetBrains AI Assistant chat with Claude | The [JetBrains plugin](#jetbrains-ides), above the chat's input, from the lines the mod runs |
 
 `/token-meter` prints the current lines as text, the path of the settings file behind them and the command that opens the configurator. When the band shows `Token Meter: the engine did not run (...)` instead of your lines, that command says how the engine is being run.
 
@@ -59,6 +61,34 @@ In a terminal session, `/plugin configure token-meter@token-meter` asks for them
 | `refreshSeconds` | `30` | How often the lines are run again while nothing else refreshes them. A finished turn, a model switch, a compaction and a resized band always do. At least 5; `0` turns the timer off. |
 | `runtime` | `node` | The command that runs the engine: `node`, `bun`, or the full path to either when the app does not find it on its `PATH`. |
 
+## JetBrains IDEs
+
+JetBrains AI Assistant runs Claude Code through [ACP](https://www.jetbrains.com/help/ai-assistant/acp.html), where Claude Code has nothing to draw on, so the mod's band never appears in the AI chat. The folder `jetbrains/` holds a plugin for the IDE that puts it there, above the chat's input:
+
+```text
+Model: Sonnet 5.5 | Thinking: high | Ctx: 39.5k | Total: 117.9k | Cost: $0.00          ⎇ main
+Session: 7.0% | Reset: 3hr 29m | Weekly: 10.0% | Weekly Reset: 2d 13hr 39m           (+1,-1)
+╭──────────────────────────────────────────────────────────────────────────────────────╮
+│ Type your task, use @ to add files or / for commands                                 │
+╰──────────────────────────────────────────────────────────────────────────────────────╯
+```
+
+Each chat shows the lines of its own Claude session, refreshed as the mod refreshes them. A chat narrower than a line wraps it, a link opens on a click, and a chat with another agent shows no band.
+
+You need the mod installed in Claude Code as [above](#install), in a release that keeps snapshots (any after 0.1.3), and an IDE of the 2026.2 line or later with JetBrains AI Assistant and Claude as an ACP agent. The plugin is not on JetBrains Marketplace: you build it against your own IDE, with the Java that IDE bundles, so there is nothing else to install. From a clone of this repository:
+
+```bash
+"<IDE home>/jbr/bin/java" jetbrains/Build.java install
+```
+
+`<IDE home>` is the folder the IDE is installed in, the one that holds `bin`, `lib` and `jbr` (on Windows the command is `"<IDE home>\jbr\bin\java.exe"`). That compiles the plugin, runs its tests, and puts it in that IDE's plugins folder; restart the IDE and open a chat with Claude. For another IDE, run it again with that IDE's Java. To install by hand, leave `install` out: the build writes `jetbrains/out/token-meter-<version>.zip`, which **Settings | Plugins | ⚙ | Install Plugin from Disk** takes.
+
+Three things to know:
+
+- The plugin draws in a slot of AI Assistant's chat that JetBrains does not document, and reads the chat's session id from AI Assistant's own classes. An AI Assistant update can change either. Build the plugin again after one: a build that compiles is one whose slot is still there. Should the chat misbehave after an update, disable the plugin until it builds again.
+- While an IDE with the plugin runs, every Claude Code session on the machine that has no surface of its own (an IDE's, an SDK host's, a `claude -p` run) keeps a small snapshot of its lines under `~/.cache/token-meter`, which costs it a run of the engine at its start, after each turn and on the timer. With no such IDE running, sessions keep none.
+- It has been run on a local project in Rider, and builds against the AI Assistant of PyCharm and RustRover too. A project opened through remote development has not been tried.
+
 ## How it works
 
 ```text
@@ -74,12 +104,29 @@ band above the prompt ◀── styled spans ◀── ccstatusline engine (mod/
 
 The engine in `mod/engine` is the published `ccstatusline` release of the version this repository is at, fetched from npm by [`mod/scripts/sync-engine.mjs`](mod/scripts/sync-engine.mjs). It is the same code `npx ccstatusline` runs under a terminal, which is why both places agree.
 
+### In a JetBrains IDE
+
+A session an IDE hosts has no surface that asks the mod to draw, so step 3 has nowhere to go. There the two halves meet in a folder under the home directory instead:
+
+```text
+JetBrains plugin ──▶ ~/.cache/token-meter/reader                 "a reader is here", once a minute
+mod, in the chat's Claude session ──▶ ~/.cache/token-meter/sessions/<session id>.json
+JetBrains plugin ◀── that file, read once a second ──▶ band above the chat's input
+```
+
+1. The plugin signs life in `reader` for as long as the IDE runs. A session on no surface keeps a snapshot only while that sign is under five minutes old.
+2. Such a session runs the engine at its start, after each turn, and on its timer, at a width no line reaches, and writes the result as JSON: rows of groups of styled spans, or the failure in their place, with the time until which the lines are fresh.
+3. AI Assistant keeps the id of the Claude session behind each chat, and that id names the snapshot. The plugin reads the file for the chat on screen and draws it; past its freshness (the session has ended) the lines are drawn faded.
+
+The plugin also drops snapshots no session has written for a week.
+
 ### What differs from a terminal
 
 - The lines sit above the prompt, not under it: that is where Claude Code lets a mod draw.
 - Claude Code hands a mod a little less than it hands a `statusLine` command. Vim mode, worktree details, lines added and removed, and API duration are missing, so a widget built only on one of those shows its empty state.
 - Powerline separators need a font that has their glyphs. The desktop app draws them only if its code font does.
 - The band is drawn in the desktop app and in terminals. Claude Code does not offer it to the VS Code extension or the mobile app yet.
+- In a JetBrains IDE the lines are as old as the mod's last run, not redrawn on demand, and the engine's colours are a terminal's: one that would be lost on the IDE's theme is moved toward the theme's own text colour until it reads.
 
 ## Repository layout
 
@@ -89,6 +136,7 @@ The engine in `mod/engine` is the published `ccstatusline` release of the versio
 | `mod/hooks/` | The mod: one hooks module and the files it imports |
 | `mod/tests/` | The mod's tests |
 | `mod/engine/` | The vendored ccstatusline engine the mod runs |
+| `jetbrains/` | The JetBrains plugin: its sources, its tests, and the one file that builds it |
 | `.claude-plugin/marketplace.json` | Lists `mod/` as the plugin `token-meter` |
 
 ## Development
@@ -105,6 +153,18 @@ claude -p "/token-meter" --plugin-dir mod   # the real engine, end to end, with 
 
 The engine is developed as upstream describes in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md), with [Bun](https://bun.sh): `bun install`, `bun test`, `bun run lint`. Those commands leave `mod/` alone.
 
+The JetBrains plugin is plain Java, built by [`jetbrains/Build.java`](jetbrains/Build.java) with the Java a JetBrains IDE bundles, against that IDE and its AI Assistant:
+
+```bash
+"<IDE home>/jbr/bin/java" jetbrains/Build.java test      # compile, and run jetbrains/tests
+"<IDE home>/jbr/bin/java" jetbrains/Build.java           # and write jetbrains/out/token-meter-<version>.zip
+"<IDE home>/jbr/bin/java" jetbrains/Build.java install   # and put it in that IDE's plugins folder
+```
+
+Everything that can be is kept clear of the IDE and tested without one: reading a snapshot, laying a row out, judging a colour, drawing the band. What touches AI Assistant's own classes is in `ChatSessions`, and what touches the IDE in `Band`, `BandProvider`, `IdeLook` and `ReaderLife`; those are checked by compiling and by running the IDE.
+
+To try a change to the mod in the IDE before it is released, start the IDE with `CLAUDE_CODE_PLUGIN_DIRS` set to this clone's `mod` folder: Claude Code then loads the mod from there in the sessions that IDE hosts.
+
 ### Releasing
 
 An install does not take whatever is on `main`. The marketplace entry in `.claude-plugin/marketplace.json` names a release tag, and Claude Code installs the mod as it stood at that tag. To release:
@@ -113,6 +173,8 @@ An install does not take whatever is on `main`. The marketplace entry in `.claud
 2. `claude plugin tag mod --push` creates and pushes that tag, after checking the two files agree.
 
 Machines that already have the mod get the release from `claude plugin update token-meter@token-meter`, or by themselves where the marketplace is set to update automatically.
+
+The JetBrains plugin takes the mod's version when it is built, and reaches a machine only by being built there: after a release that changed `jetbrains/`, or the shape of a snapshot, build and install it again.
 
 ### Keeping up with ccstatusline
 

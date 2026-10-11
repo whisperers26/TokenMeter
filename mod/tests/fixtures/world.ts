@@ -1,6 +1,13 @@
 import { mock } from 'claude-code/testing'
 import type { MockClock } from 'claude-code/testing'
-import type { Args, EventResult, On, SessionUsage, Settings } from 'claude-code'
+import type {
+  Args,
+  EventResult,
+  On,
+  RenderSurface,
+  SessionUsage,
+  Settings,
+} from 'claude-code'
 
 import { ENGINE_OUTPUT } from './engine-output'
 
@@ -21,6 +28,8 @@ export type WorldOptions = {
   usage?: SessionUsage
   /** The paths `$.fs.exists` finds. */
   existing?: readonly string[]
+  /** The surfaces the session draws on, as `$.session.surfaces()` answers. */
+  surfaces?: readonly RenderSurface[]
   /** How a write ends; left out, the file is written. */
   write?: (e: Args<'fs.write'>) => EventResult<'fs.write'>
 }
@@ -110,6 +119,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
   on('session.version', () => ({ value: { version: '2.1.296' } }))
   on('session.usage', () => ({ value: options.usage ?? USAGE }))
+  on('session.surfaces', () => ({ value: options.surfaces ?? [] }))
   on('settings.read', () => ({ value: options.settings ?? {} }))
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('turn.complete', () => ({ text: '' }))

@@ -1,5 +1,6 @@
 import type { Register, RenderSurface, Settings, Timer } from 'claude-code'
 
+import { bandOf } from './band'
 import type { Host } from './host'
 import { statusOf } from './status'
 import type { Status, Told } from './status'
@@ -116,36 +117,12 @@ export const register: Register = on => {
       schedule(bound)
     }
 
-    const { Box, Text } = $.ui.resolve(e)
-
-    if (status === null) {
+    // Nothing to show yet, or an engine with no line to show: the band stays
+    // Claude Code's own
+    if (status === null || ('lines' in status && status.lines.length === 0)) {
       return next(e)
     }
 
-    if ('failure' in status) {
-      return (
-        <Box flexDirection="column">
-          <Text dimColor wrap="truncate-end">
-            {`Token Meter: ${status.failure}`}
-          </Text>
-        </Box>
-      )
-    }
-
-    if (status.lines.length === 0) {
-      return next(e)
-    }
-
-    return (
-      <Box flexDirection="column">
-        {status.lines.map(line => (
-          <Text wrap="truncate-end">
-            {line.map(({ text, href: _href, ...style }) => (
-              <Text {...style}>{text}</Text>
-            ))}
-          </Text>
-        ))}
-      </Box>
-    )
+    return bandOf($.ui.resolve(e), status)
   })
 }

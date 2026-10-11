@@ -11,6 +11,10 @@ const START = { surface: null, isInteractive: true, cwd: '/work/app' } as const
 
 const TRANSCRIPT = '/home/me/.claude/projects/-work-app/session-1.jsonl'
 
+/** A line whose first words the engine wrapped in an OSC 8 hyperlink. */
+const LINKED_OUTPUT =
+  '\x1b]8;;https://github.com/o/r/pull/7\x1b\\\x1b[32mPR #7\x1b]8;;\x1b\\ open\n'
+
 /** How the host refuses a run whose command is not on the PATH. */
 const NO_NODE =
   "process.run(node) failed to start: ENOENT: Command 'node' not found"
@@ -295,6 +299,25 @@ describe('register', () => {
     await clock.settle()
 
     expect(isLeftAlone(await ui.drawn())).toBe(true)
+  })
+
+  test('a hyperlink the engine wrote is drawn as a link on every surface', async ($, on) => {
+    const { clock } = worldOf(on, { run: () => printed(LINKED_OUTPUT) })
+
+    await $.session.start({ ...START, surface: 'terminal' })
+
+    for (const surface of ['terminal', 'desktop'] as const) {
+      const ui = await $.ui.mount({ ...BAND, surface })
+
+      await clock.settle()
+
+      expect(rowsOf(await ui.drawn())).toEqual([
+        [
+          { text: 'PR #7', color: '#00cd00', href: 'https://github.com/o/r/pull/7' },
+          { text: ' open', color: '#00cd00' },
+        ],
+      ])
+    }
   })
 
   test('draws the lines again once the engine recovers', async ($, on) => {

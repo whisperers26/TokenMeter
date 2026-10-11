@@ -87,8 +87,8 @@ The zip is Java and holds nothing of the machine it was built on, so one built o
 
 Three things to know:
 
-- The plugin draws in a slot of AI Assistant's chat that JetBrains does not document, and reads the chat's session id from AI Assistant's own classes. An AI Assistant update can change either. Build the plugin again after one: a build that compiles is one whose slot is still there. Should the chat misbehave after an update, disable the plugin until it builds again.
-- While an IDE with the plugin runs, every Claude Code session on the machine that has no surface of its own (an IDE's, an SDK host's, a `claude -p` run) keeps a small snapshot of its lines under `~/.cache/token-meter`, which costs it a run of the engine at its start, after each turn and on the timer. With no such IDE running, sessions keep none.
+- The plugin draws in a slot of AI Assistant's chat that JetBrains does not document, and reads the chat's session id from AI Assistant's own classes. An AI Assistant update can change either. Build the plugin again after one: the build checks that the slot is still declared and that the classes still fit, and fails where they do not. Should the chat misbehave after an update, disable the plugin until it builds again.
+- From the first AI chat an IDE with the plugin shows, and until that IDE closes, every Claude Code session on the machine that is on no surface of Claude Code's own (an IDE's, an SDK host's, a `claude -p` run) keeps a small snapshot of its lines under `~/.cache/token-meter`, which costs it a run of the engine at its start, after each turn and on the timer. With no such IDE running, sessions keep none.
 - It has been run on a local project in Rider, and builds against the AI Assistant of PyCharm and RustRover too. A project opened through remote development has not been tried.
 
 ## How it works
@@ -116,9 +116,9 @@ mod, in the chat's Claude session ──▶ ~/.cache/token-meter/sessions/<sessi
 JetBrains plugin ◀── that file, read once a second ──▶ band above the chat's input
 ```
 
-1. The plugin signs life in `reader` for as long as the IDE runs. A session on no surface keeps a snapshot only while that sign is under five minutes old.
+1. The plugin signs life in `reader` from the first AI chat the IDE shows until the IDE closes. A session on no surface keeps a snapshot only while that sign is under five minutes old.
 2. Such a session runs the engine at its start, after each turn, and on its timer, at a width no line reaches, and writes the result as JSON: rows of groups of styled spans, or the failure in their place, with the time until which the lines are fresh.
-3. AI Assistant keeps the id of the Claude session behind each chat, and that id names the snapshot. The plugin reads the file for the chat on screen and draws it; past its freshness (the session has ended) the lines are drawn faded.
+3. AI Assistant keeps the id of the Claude session behind each chat, and that id names the snapshot. The plugin reads the file for the chat on screen and draws it; past its freshness (the session has ended) the lines are drawn faded. With the mod's timer off (`refreshSeconds` of `0`) a snapshot names no such time, and its lines are never faded.
 
 The plugin also drops snapshots no session has written for a week.
 

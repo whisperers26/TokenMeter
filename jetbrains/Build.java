@@ -29,6 +29,9 @@ import javax.tools.ToolProvider;
  *   &lt;IDE home&gt;/jbr/bin/java jetbrains/Build.java [test | package | install]
  * </pre>
  *
+ * On macOS the IDE home is inside the application, and its Java is
+ * {@code <IDE>.app/Contents/jbr/Contents/Home/bin/java}.
+ *
  * The plugin draws in a slot JetBrains AI Assistant does not document, so it
  * is compiled against the AI Assistant that IDE has: a build that compiles is
  * one whose slot is still there. {@code test} compiles and runs the tests,

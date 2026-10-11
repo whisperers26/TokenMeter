@@ -51,7 +51,13 @@ There is nothing to do: the band draws itself wherever the mod is enabled.
 
 ### Options
 
-Set them with `claude plugin configure token-meter`, or under the plugin in `/config`.
+Set them when you install, with `--config refreshSeconds=10`, or later from any shell:
+
+```bash
+echo '{"refreshSeconds": "10"}' | claude plugin configure token-meter@token-meter --values-stdin
+```
+
+In a terminal session, `/plugin configure token-meter@token-meter` asks for them instead. A change applies to the sessions you start after it.
 
 | Option | Default | What it does |
 | --- | --- | --- |

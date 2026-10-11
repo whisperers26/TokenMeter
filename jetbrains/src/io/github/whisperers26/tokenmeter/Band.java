@@ -9,6 +9,7 @@ import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.observable.properties.AtomicBooleanProperty;
 import com.intellij.openapi.observable.properties.ObservableBooleanProperty;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.util.concurrency.AppExecutorUtil;
 import io.github.whisperers26.tokenmeter.Snapshot.Row;
 import io.github.whisperers26.tokenmeter.Snapshot.Span;
@@ -68,7 +69,9 @@ final class Band implements AIAssistantChatPanelComponent {
         reading = AppExecutorUtil.getAppScheduledExecutorService()
             .scheduleWithFixedDelay(this::readAgain, 0, PERIOD_MS, TimeUnit.MILLISECONDS);
 
-        // AI Assistant ends the scope with the chat panel: the reading ends with it
+        // The reading ends with the chat panel, by whichever of its two ends comes
+        Disposer.register(chatPanel, () -> reading.cancel(false));
+
         Job life = scope.getCoroutineContext().get(Job.Key);
 
         if (life != null) {

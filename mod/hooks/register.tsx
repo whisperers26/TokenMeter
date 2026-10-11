@@ -250,7 +250,8 @@ export const register: Register = (on, options) => {
 
     columnsOf.set(e.surface, e.props.bodyColumns)
 
-    if (isResized || status === null) {
+    // The first draw starts the first run; after that only a new width does
+    if (isResized || (status === null && running === null)) {
       schedule(bound)
     }
 

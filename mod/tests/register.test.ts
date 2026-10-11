@@ -273,6 +273,29 @@ describe('register', () => {
     expect(runs).toHaveLength(1)
   })
 
+  test('a redraw while the first run is under way starts no second run', async ($, on) => {
+    let release = () => {}
+
+    const { clock, runs } = worldOf(on, {
+      run: () =>
+        new Promise(resolve => {
+          release = () => resolve(printed(ENGINE_OUTPUT))
+        }),
+    })
+
+    await $.session.start(START)
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+
+    await clock.settle()
+    await ui.redraw({ ...BAND.props, isWorking: true })
+    await clock.settle()
+    release()
+    await clock.settle()
+
+    expect(runs).toHaveLength(1)
+  })
+
   test('says why in the band when the engine cannot be started', async ($, on) => {
     const { clock } = worldOf(on, { run: () => ({ deny: NO_NODE }) })
 

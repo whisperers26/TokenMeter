@@ -167,10 +167,14 @@ export const register: Register = (on, options) => {
     ticking?.cancel()
     ticking = refreshMs === undefined ? null : bound.every(refreshMs, request)
 
-    await $.command.register({
-      name: 'token-meter',
-      description: 'Show the status lines as text, and where they are configured',
-    })
+    // The band does not depend on the command: a name already taken costs
+    // the command alone
+    await $.command
+      .register({
+        name: 'token-meter',
+        description: 'Show the status lines as text, and where they are configured',
+      })
+      .catch(() => undefined)
 
     // A band drawn before this hook bound the host was passed on, and that
     // answer stands until something asks for it again

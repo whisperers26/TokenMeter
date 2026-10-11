@@ -11,6 +11,9 @@ import type { Host } from './host'
 import { statusOf } from './status'
 import type { Status, Told } from './status'
 
+/** What runs the engine unless the person names another runtime. */
+const DEFAULT_RUNTIME = 'node'
+
 /** How often the lines are run again while nothing else asks, in seconds. */
 const DEFAULT_REFRESH_SECONDS = 30
 
@@ -41,8 +44,16 @@ function hasOwnStatusLine({ statusLine }: Settings): boolean {
   return typeof command === 'string' && command.trim() !== ''
 }
 
+/** The command the engine is run with: the option's, or node. */
+function runtimeOf({ runtime }: PluginOptions): string {
+  return typeof runtime === 'string' && runtime.trim() !== ''
+    ? runtime.trim()
+    : DEFAULT_RUNTIME
+}
+
 export const register: Register = (on, options) => {
   const refreshMs = refreshMsOf(options)
+  const runtime = runtimeOf(options)
 
   let bound: Host | null = null
   let status: Status | null = null
@@ -88,6 +99,7 @@ export const register: Register = (on, options) => {
         isStale = false
 
         status = await statusOf(host, {
+          runtime,
           told,
           columns:
             columnsOf.size === 0 ? undefined : Math.min(...columnsOf.values()),

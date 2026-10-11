@@ -494,6 +494,34 @@ describe('register', () => {
     expect([whileHeld, runs.length]).toEqual([1, 2])
   })
 
+  test(
+    'runs the engine with the runtime the option names',
+    { options: { runtime: ' /opt/bun/bin/bun ' } },
+    async ($, on) => {
+      const { clock, runs } = worldOf(on)
+
+      await $.session.start(START)
+      await $.ui.mount({ ...BAND, surface: 'desktop' })
+      await clock.settle()
+
+      expect(runs.map(run => run.argv[0])).toEqual(['/opt/bun/bin/bun'])
+    },
+  )
+
+  test(
+    'a blank runtime option means node',
+    { options: { runtime: '  ' } },
+    async ($, on) => {
+      const { clock, runs } = worldOf(on)
+
+      await $.session.start(START)
+      await $.ui.mount({ ...BAND, surface: 'desktop' })
+      await clock.settle()
+
+      expect(runs.map(run => run.argv[0])).toEqual(['node'])
+    },
+  )
+
   test('draws the lines again once the engine recovers', async ($, on) => {
     let isBroken = true
 

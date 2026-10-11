@@ -15,6 +15,13 @@
       "description": "How often the status lines are run again while nothing else refreshes them; a finished turn, a model switch, a compaction and a resized band always do. At least 5; 0 turns the timer off.",
       "required": false,
       "default": 30
+    },
+    "runtime": {
+      "type": "string",
+      "title": "JavaScript runtime",
+      "description": "The command that runs the bundled ccstatusline engine: node (the default), bun, or the full path to either when the app does not find it on its PATH.",
+      "required": false,
+      "default": "node"
     }
   }
 }

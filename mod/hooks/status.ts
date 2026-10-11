@@ -24,10 +24,18 @@ export type Status = { lines: Line[] } | { failure: string }
 
 /** What one run of the engine is asked to draw for. */
 export type StatusRequest = {
+  /** The command the engine is run with: `node`, `bun`, or a path to one. */
+  runtime: string
   told: Told
   /** The narrowest band drawn, in character cells; absent when none is. */
   columns: number | undefined
 }
+
+/** The engine as an argument vector: the runtime, then its entry point. */
+export const engineOf = (host: Host, runtime: string): string[] => [
+  runtime,
+  pathIn(host.root, ENGINE_ENTRY),
+]
 
 /**
  * The session's transcript: the one an event named, else the file Claude
@@ -130,7 +138,7 @@ const firstLineOf = (text: string) =>
  */
 export async function statusOf(
   host: Host,
-  { told, columns }: StatusRequest,
+  { runtime, told, columns }: StatusRequest,
 ): Promise<Status> {
   try {
     const home = await host.home()
@@ -141,7 +149,7 @@ export async function statusOf(
         ? undefined
         : await widthOf(host, home, columns, facts.usage.context.percent)
 
-    const ran = await host.run(['node', pathIn(host.root, ENGINE_ENTRY)], {
+    const ran = await host.run(engineOf(host, runtime), {
       stdin: JSON.stringify(payloadOf(facts)),
       ...(width !== undefined && { env: { CCSTATUSLINE_WIDTH: String(width) } }),
     })

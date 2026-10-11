@@ -12,9 +12,6 @@ import { reportOf } from './report'
 import { engineOf, engineSettingsPathIn, statusOf } from './status'
 import type { Status, Told } from './status'
 
-/** The slash command that reports the lines as text. */
-const COMMAND = 'token-meter'
-
 /** What runs the engine unless the person names another runtime. */
 const DEFAULT_RUNTIME = 'node'
 
@@ -129,7 +126,7 @@ export const register: Register = (on, options) => {
   function schedule(host: Host) {
     queued ??= host.after(0, () => {
       queued = null
-      void refresh(host)
+      void refresh(host).catch(() => undefined)
     })
   }
 
@@ -171,7 +168,7 @@ export const register: Register = (on, options) => {
     ticking = refreshMs === undefined ? null : bound.every(refreshMs, request)
 
     await $.command.register({
-      name: COMMAND,
+      name: 'token-meter',
       description: 'Show the status lines as text, and where they are configured',
     })
 
@@ -183,7 +180,7 @@ export const register: Register = (on, options) => {
       return { text: 'Token Meter: the session has not started' }
     }
 
-    await refresh(bound)
+    await refresh(bound).catch(() => undefined)
 
     return {
       text: reportOf(status ?? { failure: 'the engine has not run' }, {

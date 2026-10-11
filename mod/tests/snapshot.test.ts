@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { snapshotOf } from '../hooks/snapshot'
+import { readerPathIn, snapshotOf, snapshotPathIn } from '../hooks/snapshot'
 
 const PAD = ' '.repeat(12)
 
@@ -43,5 +43,19 @@ describe('snapshot', () => {
     expect(
       snapshotOf({ lines: [] }, { ...RUN, freshFor: 90_000 }),
     ).toMatchObject({ freshUntil: 1_700_000_990_000 })
+  })
+
+  test('a snapshot is a file named for its session, under the home directory', () => {
+    expect([
+      snapshotPathIn('/home/me', 'abc'),
+      snapshotPathIn('C:\\Users\\me', 'abc'),
+    ]).toEqual([
+      '/home/me/.cache/token-meter/sessions/abc.json',
+      'C:\\Users\\me\\.cache\\token-meter\\sessions\\abc.json',
+    ])
+  })
+
+  test("a reader's sign of life is one file beside the snapshots", () => {
+    expect(readerPathIn('/home/me')).toBe('/home/me/.cache/token-meter/reader')
   })
 })

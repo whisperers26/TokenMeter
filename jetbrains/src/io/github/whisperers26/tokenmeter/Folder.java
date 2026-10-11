@@ -32,6 +32,11 @@ public record Folder(Path path) {
         return new Folder(Path.of(home).resolve(".cache").resolve("token-meter"));
     }
 
+    /** The folder for this process: its own environment, and its own home directory. */
+    public static Folder here() {
+        return in(System.getenv(), System.getProperty("user.home"));
+    }
+
     /** The file this reader keeps its sign of life in. */
     public Path reader() {
         return path.resolve("reader");

@@ -105,8 +105,11 @@ final class Band implements AIAssistantChatPanelComponent {
                 shown = now;
                 ApplicationManager.getApplication().invokeLater(() -> show(now), ModalityState.any());
             }
-        } catch (IOException | RuntimeException | LinkageError failed) {
-            // A LinkageError is an AI Assistant whose classes changed under the plugin: said once
+        } catch (LinkageError changed) {
+            // AI Assistant's classes are not the ones the plugin was built against: no later try will do better
+            LOG.warn("Token Meter draws no band: build the plugin again for this AI Assistant", changed);
+            reading.cancel(false);
+        } catch (IOException | RuntimeException failed) {
             if (!hasFailed) {
                 hasFailed = true;
                 LOG.warn("Token Meter could not read this chat's status lines", failed);

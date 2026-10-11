@@ -9,6 +9,9 @@ import type { World } from './fixtures/world'
 /** A session the desktop app hosts: no terminal, a person at the prompt. */
 const START = { surface: null, isInteractive: true, cwd: '/work/app' } as const
 
+/** A session under a terminal that runs no status line of its own. */
+const TERMINAL = { ...START, surface: 'terminal' } as const
+
 const TRANSCRIPT = '/home/me/.claude/projects/-work-app/session-1.jsonl'
 
 /** `/token-meter` as the person types it, where no terminal has measured. */
@@ -238,8 +241,8 @@ describe('register', () => {
       engineSettings: JSON.stringify({ flexMode: 'full-minus-40' }),
     })
 
-    await $.session.start(START)
-    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await $.session.start(TERMINAL)
+    await $.ui.mount({ ...BAND, surface: 'terminal' })
     await clock.settle()
 
     expect([reads, runs.map(widthOf)]).toEqual([
@@ -251,14 +254,28 @@ describe('register', () => {
   test("reserves the engine's default when it has no settings file", async ($, on) => {
     const { clock, runs } = worldOf(on)
 
-    await $.session.start(START)
-    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await $.session.start(TERMINAL)
+    await $.ui.mount({ ...BAND, surface: 'terminal' })
     await clock.settle()
 
     expect(runs.map(widthOf)).toEqual(['106'])
   })
 
   test("runs the engine again when the band's width changes", async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    await $.session.start(TERMINAL)
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+
+    await clock.settle()
+    await ui.redraw({ ...BAND.props, bodyColumns: 80 })
+    await clock.settle()
+
+    expect(runs.map(widthOf)).toEqual(['106', '86'])
+  })
+
+  test('on desktop, where text is not laid out in cells, no line is cut or padded to a width', async ($, on) => {
     const { clock, runs } = worldOf(on)
 
     await $.session.start(START)
@@ -269,7 +286,33 @@ describe('register', () => {
     await ui.redraw({ ...BAND.props, bodyColumns: 80 })
     await clock.settle()
 
-    expect(runs.map(widthOf)).toEqual(['106', '86'])
+    expect(runs.map(widthOf)).toEqual(['1006'])
+  })
+
+  test("a line the engine padded apart is drawn as groups pushed to the band's edges", async ($, on) => {
+    const { clock } = worldOf(on, {
+      run: () => printed(`Model: Opus${' '.repeat(40)}main
+`),
+    })
+
+    await $.session.start(START)
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+
+    await clock.settle()
+
+    expect(await ui.drawn()).toMatchObject({
+      children: [
+        {
+          type: 'Box',
+          props: { justifyContent: 'space-between' },
+          children: [
+            { type: 'Text', children: [{ children: ['Model: Opus'] }] },
+            { type: 'Text', children: [{ children: ['main'] }] },
+          ],
+        },
+      ],
+    })
   })
 
   test('a redraw at the same width runs nothing more', async ($, on) => {
@@ -312,10 +355,10 @@ describe('register', () => {
   test('a band not yet measured gets the lines at their full width', async ($, on) => {
     const { clock, runs } = worldOf(on)
 
-    await $.session.start(START)
+    await $.session.start(TERMINAL)
     await $.ui.mount({
       ...BAND,
-      surface: 'desktop',
+      surface: 'terminal',
       props: { ...BAND.props, bodyColumns: 0 },
     })
     await clock.settle()
@@ -623,9 +666,9 @@ describe('register', () => {
       run: () => (isBroken ? { deny: NO_NODE } : printed(ENGINE_OUTPUT)),
     })
 
-    await $.session.start(START)
+    await $.session.start(TERMINAL)
 
-    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
 
     await clock.settle()
     isBroken = false

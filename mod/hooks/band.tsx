@@ -1,5 +1,7 @@
 import type { Elements, RenderElement, RenderSurface } from 'claude-code'
 
+import type { Line } from './ansi'
+import { groupsOf } from './groups'
 import type { Status } from './status'
 
 /** The elements the band is drawn with, which every surface's table has. */
@@ -31,21 +33,32 @@ export function bandOf(
     )
   }
 
+  const row = (line: Line) => (
+    <Text wrap="truncate-end">
+      {line.map(({ text, href, ...style }) =>
+        href === undefined ? (
+          <Text {...style}>{text}</Text>
+        ) : (
+          <Link href={href}>
+            <Text {...style}>{text}</Text>
+          </Link>
+        ),
+      )}
+    </Text>
+  )
+
   return (
     <Box flexDirection="column">
-      {status.lines.map(line => (
-        <Text wrap="truncate-end">
-          {line.map(({ text, href, ...style }) =>
-            href === undefined ? (
-              <Text {...style}>{text}</Text>
-            ) : (
-              <Link href={href}>
-                <Text {...style}>{text}</Text>
-              </Link>
-            ),
-          )}
-        </Text>
-      ))}
+      {status.lines.map(line => {
+        const groups = groupsOf(line)
+
+        // Where the engine padded a line apart, the surface does the spacing
+        return groups.length === 1 ? (
+          row(line)
+        ) : (
+          <Box justifyContent="space-between">{groups.map(row)}</Box>
+        )
+      })}
     </Box>
   )
 }

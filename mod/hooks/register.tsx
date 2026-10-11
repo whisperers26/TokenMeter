@@ -18,6 +18,9 @@ const DEFAULT_RUNTIME = 'node'
 /** How often the lines are run again while nothing else asks, in seconds. */
 const DEFAULT_REFRESH_SECONDS = 30
 
+/** A width, in cells, wider than any status line. */
+const UNBOUNDED_COLUMNS = 1000
+
 /** The shortest period the timer takes: each tick starts a process. */
 const MIN_REFRESH_SECONDS = 5
 
@@ -257,9 +260,15 @@ export const register: Register = (on, options) => {
       return next(e)
     }
 
-    const isResized = columnsOf.get(e.surface) !== e.props.bodyColumns
+    // The desktop app lays text out in a proportional font, where a width in
+    // cells means nothing: the engine is given room no line reaches, and the
+    // band spaces the padded groups itself
+    const columns =
+      e.surface === 'desktop' ? UNBOUNDED_COLUMNS : e.props.bodyColumns
 
-    columnsOf.set(e.surface, e.props.bodyColumns)
+    const isResized = columnsOf.get(e.surface) !== columns
+
+    columnsOf.set(e.surface, columns)
 
     // The first draw starts the first run; after that only a new width does
     if (isResized || (status === null && running === null)) {

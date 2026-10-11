@@ -13,8 +13,12 @@ import java.util.List;
  * throwing. The IDE ships no test framework to run them with.
  */
 public final class AllTests {
-    private static final List<Class<?>> SUITES =
-        List.of(ContrastTest.class, FolderTest.class, RowLayoutTest.class, SnapshotTest.class);
+    private static final List<Class<?>> SUITES = List.of(
+        BandViewTest.class,
+        ContrastTest.class,
+        FolderTest.class,
+        RowLayoutTest.class,
+        SnapshotTest.class);
 
     private AllTests() {
     }

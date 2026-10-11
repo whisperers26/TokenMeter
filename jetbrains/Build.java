@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.lang.reflect.InvocationTargetException;
@@ -12,12 +13,14 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
@@ -48,6 +51,9 @@ public final class Build {
 
     /** This file's own name. */
     private static final String SELF = "Build.java";
+
+    /** The extension point the plugin answers, by the name AI Assistant declares it under. */
+    private static final String SLOT = "com.intellij.ml.llm.chatPanelComponentProvider";
 
     /** The class in the tests' folder that runs them all, and the method that does. */
     private static final String TESTS = "io.github.whisperers26.tokenmeter.AllTests";
@@ -86,6 +92,8 @@ public final class Build {
 
         System.out.println("IDE:          " + ide);
         System.out.println("AI Assistant: " + aiAssistant);
+
+        requireSlot(aiAssistant);
 
         deleteTree(out);
 
@@ -234,15 +242,11 @@ public final class Build {
                     + " install it, or pass --ai-assistant <its folder>"));
     }
 
-    /** Every jar the plugin is compiled against: the IDE's own, and AI Assistant's. */
-    private static List<Path> librariesOf(Path ide, Path aiAssistant) throws IOException {
+    /** The jars of an IDE or of a plugin: those in its `lib`, and in `lib/modules` where it has one. */
+    private static List<Path> jarsOf(Path home) throws IOException {
         List<Path> jars = new ArrayList<>();
 
-        for (Path folder : List.of(
-            ide.resolve("lib"),
-            ide.resolve("lib").resolve("modules"),
-            aiAssistant.resolve("lib"),
-            aiAssistant.resolve("lib").resolve("modules"))) {
+        for (Path folder : List.of(home.resolve("lib"), home.resolve("lib").resolve("modules"))) {
             if (Files.isDirectory(folder)) {
                 try (Stream<Path> files = Files.list(folder)) {
                     files.filter(file -> file.toString().endsWith(".jar")).sorted().forEach(jars::add);
@@ -251,6 +255,43 @@ public final class Build {
         }
 
         return jars;
+    }
+
+    /** Every jar the plugin is compiled against: the IDE's own, and AI Assistant's. */
+    private static List<Path> librariesOf(Path ide, Path aiAssistant) throws IOException {
+        List<Path> jars = new ArrayList<>(jarsOf(ide));
+
+        jars.addAll(jarsOf(aiAssistant));
+
+        return jars;
+    }
+
+    /**
+     * Fails where this AI Assistant declares no extension point of the name
+     * the plugin answers. The plugin's descriptor names the point, which no
+     * compiler checks: without this the plugin would build, load, and draw
+     * nothing.
+     */
+    private static void requireSlot(Path aiAssistant) throws IOException {
+        for (Path jar : jarsOf(aiAssistant)) {
+            try (ZipFile zip = new ZipFile(jar.toFile())) {
+                for (ZipEntry entry : Collections.list(zip.entries())) {
+                    if (!entry.getName().endsWith(".xml")) {
+                        continue;
+                    }
+
+                    try (InputStream descriptor = zip.getInputStream(entry)) {
+                        if (new String(descriptor.readAllBytes(), StandardCharsets.UTF_8).contains('"' + SLOT + '"')) {
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        throw failure(
+            "this AI Assistant declares no extension point " + SLOT + ":"
+                + " the chat has no slot for the band any more, and the plugin needs changing for it");
     }
 
     private static List<Path> with(List<Path> classpath, Path more) {

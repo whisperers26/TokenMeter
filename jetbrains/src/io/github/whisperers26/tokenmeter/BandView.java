@@ -49,10 +49,11 @@ public final class BandView extends JComponent {
     private transient List<Row> rows = List.of();
     private boolean isStale;
 
-    // The rows as laid out for one width, laid out again when it or they change
+    // The rows as laid out for one width in one font, laid out again when either or they change
     private transient List<Drawn> drawn = List.of();
     private int drawnLines;
     private int drawnWidth = -1;
+    private transient Font drawnFont;
 
     private transient Drawn hovered;
 
@@ -171,12 +172,13 @@ public final class BandView extends JComponent {
         return getFontMetrics(fontOf(span)).stringWidth(span.text());
     }
 
-    /** Lays the rows out for the band's width, where they are not laid out for it already. */
+    /** Lays the rows out for the band's width and the theme's font, where they are not laid out for them already. */
     private void layOut() {
         Insets insets = look.insets();
         int width = getWidth() > 0 ? Math.max(0, getWidth() - insets.left - insets.right) : UNBOUNDED;
+        Font font = look.font();
 
-        if (width == drawnWidth) {
+        if (width == drawnWidth && font.equals(drawnFont)) {
             return;
         }
 
@@ -196,6 +198,7 @@ public final class BandView extends JComponent {
         drawn = all;
         drawnLines = lines;
         drawnWidth = width;
+        drawnFont = font;
         hovered = null;
     }
 

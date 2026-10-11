@@ -1,0 +1,15 @@
+<idea-plugin>
+  <id>io.github.whisperers26.tokenmeter</id>
+  <name>Token Meter</name>
+  <version>${version}</version>
+  <vendor url="https://github.com/whisperers26/TokenMeter">whisperers26</vendor>
+  <description><![CDATA[
+    Your <a href="https://github.com/sirmalloc/ccstatusline">ccstatusline</a> status line in the JetBrains AI
+    Assistant chat: the lines the Token Meter mod of Claude Code runs for a chat's Claude session, drawn above
+    the chat's input. It needs the Token Meter mod installed in Claude Code, and draws nothing without it.
+  ]]></description>
+  <idea-version since-build="262"/>
+
+  <depends>com.intellij.modules.platform</depends>
+  <depends>com.intellij.ml.llm</depends>
+</idea-plugin>

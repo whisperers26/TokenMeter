@@ -7,6 +7,7 @@ import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -44,6 +45,9 @@ import javax.tools.ToolProvider;
  */
 public final class Build {
     private static final String PLUGIN = "token-meter";
+
+    /** This file's own name. */
+    private static final String SELF = "Build.java";
 
     /** The class in the tests' folder that runs them all, and the method that does. */
     private static final String TESTS = "io.github.whisperers26.tokenmeter.AllTests";
@@ -122,18 +126,52 @@ public final class Build {
         return new IllegalStateException(message);
     }
 
+    /**
+     * The folder this file was named in on the command line; null where the
+     * command does not say.
+     *
+     * The command is the launcher's own name, this file's path and the
+     * arguments, unquoted, and the path may hold spaces: the path starts at
+     * the first word from which the text up to this file's name is a file.
+     */
+    private static Path namedFolder() {
+        String command = System.getProperty("sun.java.command", "");
+        int end = command.indexOf(SELF);
+
+        if (end < 0) {
+            return null;
+        }
+
+        String upToSelf = command.substring(0, end + SELF.length());
+
+        for (int from = 0; from >= 0 && from < upToSelf.length(); from = upToSelf.indexOf(' ', from) + 1) {
+            try {
+                Path file = Path.of(upToSelf.substring(from));
+
+                if (Files.isRegularFile(file)) {
+                    return file.toAbsolutePath().getParent();
+                }
+            } catch (InvalidPathException notAPath) {
+                // The launcher's name, or a path cut at one of its own spaces: the next word may start it
+            }
+
+            if (upToSelf.indexOf(' ', from) < 0) {
+                break;
+            }
+        }
+
+        return null;
+    }
+
     /** The folder this file is in: the one named on the command line, or found from where it was run. */
     private static Path rootOf() {
-        String command = System.getProperty("sun.java.command", "");
-        String first = command.isBlank() ? "" : command.strip().split("\\s+")[0];
-
         Stream<Path> candidates = Stream.of(
-            first.endsWith("Build.java") ? Path.of(first).toAbsolutePath().getParent() : null,
+            namedFolder(),
             Path.of("jetbrains").toAbsolutePath(),
             Path.of("").toAbsolutePath());
 
         return candidates
-            .filter(folder -> folder != null && Files.isRegularFile(folder.resolve("Build.java")))
+            .filter(folder -> folder != null && Files.isRegularFile(folder.resolve(SELF)))
             .findFirst()
             .orElseThrow(() -> failure("run this from the repository's root, as jetbrains/Build.java"));
     }

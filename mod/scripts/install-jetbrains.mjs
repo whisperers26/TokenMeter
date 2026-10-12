@@ -17,6 +17,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { inflateRawSync } from 'node:zlib'
 
 const PLUGIN = 'ccstatusline-desktop'
+
+/** The folder the plugin was installed in under its former name, Token Meter. */
+const FORMER_PLUGIN = 'token-meter'
 const RELEASES = 'https://github.com/whisperers26/ccstatusline-desktop/releases'
 
 /** The folder AI Assistant is installed in, among an IDE's plugins. */
@@ -162,12 +165,15 @@ export function filesIn(zip) {
 }
 
 /**
- * Puts the plugin in one IDE's plugins folder, in place of the one there.
+ * Puts the plugin in one IDE's plugins folder, in place of the one there,
+ * under this name or its former one.
  *
  * @param files the plugin's files, each named from the plugin's own folder down
  * @param plugins the IDE's plugins folder
  */
 export function installIn(files, plugins) {
+  // Left in place, the plugin under its former name would draw a band of its own
+  rmSync(join(plugins, FORMER_PLUGIN), { recursive: true, force: true })
   rmSync(join(plugins, PLUGIN), { recursive: true, force: true })
 
   for (const { name, content } of files) {

@@ -8,7 +8,7 @@
     Assistant chat: the lines the Token Meter mod of Claude Code runs for a chat's Claude session, drawn above
     the chat's input. It needs the Token Meter mod installed in Claude Code, and draws nothing without it.
   ]]></description>
-  <idea-version since-build="262"/>
+  <idea-version since-build="261"/>
 
   <depends>com.intellij.modules.platform</depends>
   <depends>com.intellij.ml.llm</depends>

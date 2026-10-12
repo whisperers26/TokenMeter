@@ -68,6 +68,6 @@ export function reportOf(
     ...shown,
     '',
     `Layout, widgets and colours: ${verbatim(settingsPath)}`,
-    `To change them, run this in a terminal: ${command}`,
+    `To change them, run ${verbatim('/ccstatusline-desktop edit')}, or this in a terminal: ${command}`,
   ].join('\n')
 }

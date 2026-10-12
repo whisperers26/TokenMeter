@@ -45,6 +45,12 @@ describe('report', () => {
     expect(report).toContain('node "/plugins/ccstatusline-desktop/engine/ccstatusline.js"')
   })
 
+  test('names the command that opens the configurator before the one to paste', () => {
+    expect(reportOf({ lines: [[{ text: 'x' }]] }, DETAILS).split('\n').at(-1)).toBe(
+      'To change them, run `/ccstatusline-desktop edit`, or this in a terminal: `node "/plugins/ccstatusline-desktop/engine/ccstatusline.js"`',
+    )
+  })
+
   test('a Windows path keeps its backslashes where the report is drawn as markdown', () => {
     const details = {
       engine: ['node', 'C:\\Users\\me\\.claude\\plugins\\engine\\ccstatusline.js'],

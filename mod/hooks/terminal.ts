@@ -54,6 +54,14 @@ export type Aligned = {
   said: string
 }
 
+/** What a look at the terminal's ccstatusline, and the dialog about it, came to. */
+export type Alignment = {
+  /** The mismatch that still stands: found, and not ended by a change. */
+  standing?: Mismatch
+  /** What the change the person chose came to, where they chose one. */
+  aligned?: Aligned
+}
+
 /** A version's three numbers; undefined for text that does not start with them. */
 function numbersOf(version: string) {
   const [, ...numbers] = /^(\d+)\.(\d+)\.(\d+)/.exec(version.trim()) ?? []
@@ -180,23 +188,23 @@ function dialogOf(mismatch: Mismatch): Dialog {
  * @param runtime the command the script is run with: `node`, `bun`, or a path to one
  * @param isRepeated whether to ask about a mismatch the person already answered
  *                   about; without it, each mismatch is asked about once
- * @returns what was done; undefined where nothing was asked for
+ * @returns the mismatch that still stands, if any, and what was done about it, if anything
  */
 export async function alignTerminal(
   host: Host,
   runtime: string,
   isRepeated: boolean,
-): Promise<Aligned | undefined> {
+): Promise<Alignment> {
   const mismatch = await mismatchOf(host, runtime)
 
   if (mismatch === undefined) {
-    return undefined
+    return {}
   }
 
   const answered = answeredOf(mismatch)
 
   if (!isRepeated && (await host.recall(ANSWERED_KEY).catch(() => undefined)) === answered) {
-    return undefined
+    return { standing: mismatch }
   }
 
   const { question, changes } = dialogOf(mismatch)
@@ -207,7 +215,7 @@ export async function alignTerminal(
     .catch(() => undefined)
 
   if (answer === undefined) {
-    return undefined
+    return { standing: mismatch }
   }
 
   await host.remember(ANSWERED_KEY, answered).catch(() => undefined)
@@ -215,7 +223,7 @@ export async function alignTerminal(
   const change = Object.hasOwn(changes, answer) ? changes[answer] : undefined
 
   if (change === undefined) {
-    return undefined
+    return { standing: mismatch }
   }
 
   try {
@@ -223,16 +231,21 @@ export async function alignTerminal(
       timeoutMs: CHANGE_TIMEOUT_MS,
     })
 
-    return {
+    const aligned = {
       isChanged: ran.exitCode === 0,
       said: [ran.stdout.trim(), ran.stderr.trim()].filter(said => said !== '').join('\n'),
     }
+
+    return aligned.isChanged ? { aligned } : { aligned, standing: mismatch }
   } catch (error) {
     const said = error instanceof Error ? error.message : String(error)
 
     return {
-      isChanged: false,
-      said: `ccstatusline desktop: the terminal's ccstatusline was left as it is (${said})`,
+      standing: mismatch,
+      aligned: {
+        isChanged: false,
+        said: `ccstatusline desktop: the terminal's ccstatusline was left as it is (${said})`,
+      },
     }
   }
 }

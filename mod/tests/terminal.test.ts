@@ -73,6 +73,9 @@ const OLDER = { kind: 'global', manager: 'npm', version: '2.2.20' }
 const NEWER = { kind: 'runner', runner: 'npx', version: '2.3.0' }
 const MISSING = { kind: 'global', isMissing: true }
 
+/** The mismatch OLDER is, while nothing ends it. */
+const STANDING = { version: '2.2.20', recommended: '2.2.32', isNewer: false }
+
 describe('terminal', () => {
   test('a version before the settings format, or after the engine, is a mismatch; one between is not', async () => {
     const found = await Promise.all(
@@ -197,7 +200,7 @@ describe('terminal', () => {
     const { host, runs } = hostOf({ found: OLDER, answer: 'Upgrade to 2.2.32' })
 
     expect([await alignTerminal(host, 'node', false), runs.at(-1)]).toEqual([
-      { isChanged: true, said: UPGRADED },
+      { aligned: { isChanged: true, said: UPGRADED } },
       ['node', SCRIPT, 'upgrade', '2.2.32'],
     ])
   })
@@ -220,9 +223,9 @@ describe('terminal', () => {
     )
 
     expect(left).toEqual([
-      [undefined, 1],
-      [undefined, 1],
-      [undefined, 1],
+      [{ standing: STANDING }, 1],
+      [{ standing: STANDING }, 1],
+      [{ standing: STANDING }, 1],
     ])
   })
 
@@ -264,8 +267,11 @@ describe('terminal', () => {
     })
 
     expect(await alignTerminal(host, 'node', false)).toEqual({
-      isChanged: false,
-      said: "ccstatusline desktop: the terminal's ccstatusline was left as it is (EACCES)",
+      standing: STANDING,
+      aligned: {
+        isChanged: false,
+        said: "ccstatusline desktop: the terminal's ccstatusline was left as it is (EACCES)",
+      },
     })
   })
 
@@ -279,8 +285,11 @@ describe('terminal', () => {
     })
 
     expect(await alignTerminal(host, 'node', false)).toEqual({
-      isChanged: false,
-      said: "ccstatusline desktop: the terminal's ccstatusline was left as it is (ENOENT: Command 'node' not found)",
+      standing: STANDING,
+      aligned: {
+        isChanged: false,
+        said: "ccstatusline desktop: the terminal's ccstatusline was left as it is (ENOENT: Command 'node' not found)",
+      },
     })
   })
 })

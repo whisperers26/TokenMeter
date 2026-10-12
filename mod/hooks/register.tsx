@@ -97,12 +97,12 @@ export const register: Register = (on, options) => {
    * frees the terminal: the band is drawn there from then on.
    *
    * @param isRepeated whether to ask about a version already answered about
-   * @returns what was done; undefined where nothing was
+   * @returns the mismatch that still stands, and what was done about it
    */
   async function alignWithTerminal(host: Host, isRepeated: boolean) {
-    const aligned = await alignTerminal(host, runtime, isRepeated)
+    const alignment = await alignTerminal(host, runtime, isRepeated)
 
-    if (aligned?.isChanged) {
+    if (alignment.aligned?.isChanged) {
       isTerminalFree = await host.settings().then(
         settings => !hasOwnStatusLine(settings),
         () => isTerminalFree,
@@ -111,7 +111,7 @@ export const register: Register = (on, options) => {
       host.invalidate()
     }
 
-    return aligned
+    return alignment
   }
 
   /** The band's width on each surface that draws it, in character cells. */
@@ -293,7 +293,7 @@ export const register: Register = (on, options) => {
     if (isEditAsked(e.args)) {
       // A layout is about to be saved to the file the terminal's own
       // ccstatusline reads: the moment to ask again about one out of range
-      const aligned = await alignWithTerminal(bound, true)
+      const { aligned } = await alignWithTerminal(bound, true)
       const opened = await editLayout(bound, runtime)
 
       return { text: aligned ? `${aligned.said}\n\n${opened}` : opened }
@@ -385,7 +385,7 @@ export const register: Register = (on, options) => {
 
       host.after(0, () => {
         void alignWithTerminal(host, false)
-          .then(aligned => aligned && host.log(aligned.said))
+          .then(({ aligned }) => aligned && host.log(aligned.said))
           .catch(() => undefined)
       })
     }

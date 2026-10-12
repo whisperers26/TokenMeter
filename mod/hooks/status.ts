@@ -6,7 +6,6 @@ import { pathIn } from './path-in'
 import { payloadOf } from './payload'
 import type { SessionFacts } from './payload'
 import { transcriptPathIn } from './transcript'
-import { flexReserveOf } from './width'
 
 /** The engine's entry point, under the plugin's own folder. */
 const ENGINE_ENTRY = ['engine', 'ccstatusline.js'] as const
@@ -28,7 +27,7 @@ export type StatusRequest = {
   /** The command the engine is run with: `node`, `bun`, or a path to one. */
   runtime: string
   told: Told
-  /** The narrowest band drawn, in character cells; absent when none is. */
+  /** The width the engine is told, in character cells; absent to tell none. */
   columns: number | undefined
 }
 
@@ -113,24 +112,6 @@ async function factsOf(
   }
 }
 
-/**
- * The width to tell the engine so that its lines fill a band of `columns`:
- * those columns, plus what the engine will hold back of them.
- */
-async function widthOf(
-  host: Host,
-  home: string | undefined,
-  columns: number,
-  contextPercent: number | undefined,
-) {
-  const settingsText =
-    home === undefined
-      ? undefined
-      : await host.readFile(engineSettingsPathIn(home)).catch(() => undefined)
-
-  return columns + flexReserveOf(settingsText, contextPercent)
-}
-
 /** The first line of `text` that says anything, cut to fit a band's row. */
 const firstLineOf = (text: string) =>
   (text.split('\n').find(line => line.trim() !== '') ?? '')
@@ -145,7 +126,7 @@ const firstLineOf = (text: string) =>
  * answered as a `failure` the band can show in the lines' place.
  *
  * @param host the calls on Claude Code the run is made with
- * @param request what the session's events told, and the band's width
+ * @param request what the session's events told, and the width to tell
  * @returns the lines, each as its styled spans, or why there are none
  */
 export async function statusOf(
@@ -156,14 +137,11 @@ export async function statusOf(
     const home = await host.home()
     const facts = await factsOf(host, told, home)
 
-    const width =
-      columns === undefined
-        ? undefined
-        : await widthOf(host, home, columns, facts.usage.context.percent)
-
     const ran = await host.run(engineOf(host, runtime), {
       stdin: JSON.stringify(payloadOf(facts)),
-      ...(width !== undefined && { env: { CCSTATUSLINE_WIDTH: String(width) } }),
+      ...(columns !== undefined && {
+        env: { CCSTATUSLINE_WIDTH: String(columns) },
+      }),
     })
 
     if (ran.exitCode !== 0) {

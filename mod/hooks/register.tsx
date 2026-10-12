@@ -291,7 +291,12 @@ export const register: Register = (on, options) => {
     }
 
     if (isEditAsked(e.args)) {
-      return { text: await editLayout(bound, runtime) }
+      // A layout is about to be saved to the file the terminal's own
+      // ccstatusline reads: the moment to ask again about one out of range
+      const aligned = await alignWithTerminal(bound, true)
+      const opened = await editLayout(bound, runtime)
+
+      return { text: aligned ? `${aligned.said}\n\n${opened}` : opened }
     }
 
     if (isUpdateAsked(e.args)) {

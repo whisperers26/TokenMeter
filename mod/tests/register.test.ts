@@ -793,6 +793,30 @@ describe('register', () => {
     ])
   })
 
+  test("/ccstatusline-desktop edit first asks about a terminal's ccstatusline out of range, answered about before or not", async ($, on) => {
+    const { runs, terminalRuns } = worldOf(on, {
+      settings: OWN_STATUS_LINE,
+      stored: { terminalAnswered: '2.2.20 beside 2.2.32' },
+      terminal: e => printed(e.argv[2] === 'detect' ? terminalAt('2.2.20') : `${UPGRADED}\n`),
+      run: () => printed('The configurator is open in a new terminal window.\n'),
+    })
+
+    const asked = answering(on, question =>
+      question.startsWith('Your terminal') ? 'Upgrade to 2.2.32' : 'Open the configurator',
+    )
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run({ ...COMMAND, args: 'edit' })
+
+    expect([asked.map(question => question.slice(0, 13)), terminalRuns, runs.length, text]).toEqual([
+      ['Your terminal', 'Open the ccst'],
+      [['detect'], ['upgrade', '2.2.32']],
+      1,
+      `${UPGRADED}\n\nThe configurator is open in a new terminal window.`,
+    ])
+  })
+
   test('/ccstatusline-desktop edit opens nothing where nobody answers the dialog', async ($, on) => {
     const { runs } = worldOf(on)
 

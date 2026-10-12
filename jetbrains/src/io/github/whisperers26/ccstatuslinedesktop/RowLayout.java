@@ -14,11 +14,11 @@ import java.util.function.ToIntFunction;
  * edge and ends in an ellipsis, as a terminal too narrow for it shows it.
  */
 public final class RowLayout {
-    /** A span in its place: its left edge, the line it is on (the first is 0), and its width. */
-    public record Placed(Span span, int x, int line, int width) {
+    /** A span in its place: its left edge and its width. */
+    public record Placed(Span span, int x, int width) {
     }
 
-    /** A row laid out: its spans in their places, and how many lines they take. */
+    /** A row laid out: its spans in their places, and the lines they take: one, or none for a row with no text. */
     public record Laid(List<Placed> placed, int lines) {
     }
 
@@ -32,10 +32,9 @@ public final class RowLayout {
      * Lays a row out.
      *
      * @param width the band's width
-     * @param gap the least room left between two groups that share a line
      * @param measure the width a span's text is drawn at
      */
-    public static Laid lay(Row row, int width, int gap, ToIntFunction<Span> measure) {
+    public static Laid lay(Row row, int width, ToIntFunction<Span> measure) {
         List<List<Span>> groups = row.groups();
         int[] widths = groups.stream().mapToInt(group -> group.stream().mapToInt(measure).sum()).toArray();
 
@@ -67,7 +66,7 @@ public final class RowLayout {
             for (Span span : groups.get(at)) {
                 int width = measure.applyAsInt(span);
 
-                placed.add(new Placed(span, x, 0, width));
+                placed.add(new Placed(span, x, width));
                 x += width;
             }
 
@@ -93,13 +92,13 @@ public final class RowLayout {
                     Span last = withText(span, cutText(span, width - x, measure));
 
                     if (!last.text().isEmpty()) {
-                        placed.add(new Placed(last, x, 0, measure.applyAsInt(last)));
+                        placed.add(new Placed(last, x, measure.applyAsInt(last)));
                     }
 
                     return new Laid(List.copyOf(placed), 1);
                 }
 
-                placed.add(new Placed(span, x, 0, spanWidth));
+                placed.add(new Placed(span, x, spanWidth));
                 x += spanWidth;
             }
         }

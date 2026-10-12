@@ -26,8 +26,8 @@ import javax.swing.JComponent;
 /**
  * Draws a session's status lines: the band above a chat's input.
  *
- * Its height follows its width: a band too narrow for a row wraps it. It
- * asks for no width of its own, so the chat it sits in decides that alone.
+ * A row is one line whatever the band's width: a band too narrow for it cuts
+ * it. It asks for no width of its own, so the chat it sits in decides that alone.
  */
 public final class BandView extends JComponent {
     /** Room added between lines, over the font's own height. */
@@ -186,10 +186,10 @@ public final class BandView extends JComponent {
         int lines = 0;
 
         for (Row row : rows) {
-            Laid laid = RowLayout.lay(row, width, look.gap(), this::widthOf);
+            Laid laid = RowLayout.lay(row, width, this::widthOf);
 
             for (Placed placed : laid.placed()) {
-                all.add(new Drawn(placed, lines + placed.line()));
+                all.add(new Drawn(placed, lines));
             }
 
             lines += laid.lines();
@@ -200,24 +200,6 @@ public final class BandView extends JComponent {
         drawnWidth = width;
         drawnFont = font;
         hovered = null;
-    }
-
-    @Override
-    public void setBounds(int x, int y, int width, int height) {
-        boolean isResized = width != getWidth();
-
-        super.setBounds(x, y, width, height);
-
-        if (isResized) {
-            int linesBefore = drawnLines;
-
-            layOut();
-
-            // A new width may wrap the rows differently, and so change the height to ask for
-            if (drawnLines != linesBefore) {
-                revalidate();
-            }
-        }
     }
 
     @Override

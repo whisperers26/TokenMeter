@@ -35,11 +35,6 @@ public final class BandViewTest {
         }
 
         @Override
-        public int gap() {
-            return 10;
-        }
-
-        @Override
         public Insets insets() {
             return INSETS;
         }
@@ -182,11 +177,6 @@ public final class BandViewTest {
             @Override
             public Color panel() {
                 return LOOK.panel();
-            }
-
-            @Override
-            public int gap() {
-                return LOOK.gap();
             }
 
             @Override

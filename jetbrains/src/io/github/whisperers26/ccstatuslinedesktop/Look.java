@@ -19,9 +19,6 @@ public interface Look {
     /** The colour the band is drawn on. */
     Color panel();
 
-    /** The least room left between two groups that share a line. */
-    int gap();
-
     /** The room kept around the lines. */
     Insets insets();
 

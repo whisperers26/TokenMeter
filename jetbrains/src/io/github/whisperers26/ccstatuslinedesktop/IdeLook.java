@@ -11,9 +11,6 @@ import java.awt.Insets;
 
 /** The band's look in an IDE: its theme's own font and colours, as they stand when asked. */
 final class IdeLook implements Look {
-    /** The least room left between two groups that share a line, before scaling. */
-    private static final int GAP = 16;
-
     // The font below, and the IDE font it was made from: made again when that one changes
     private Font from;
     private Font font;
@@ -42,11 +39,6 @@ final class IdeLook implements Look {
     @Override
     public Color panel() {
         return UIUtil.getPanelBackground();
-    }
-
-    @Override
-    public int gap() {
-        return JBUI.scale(GAP);
     }
 
     @Override

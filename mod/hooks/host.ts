@@ -29,6 +29,7 @@ export type Host = {
   cwd: () => Promise<string>
   projectRoot: () => Promise<string>
   model: () => Promise<string>
+  /** Rejects on a Claude Code too old to say its version. */
   version: () => Promise<SessionVersion>
   usage: () => Promise<SessionUsage>
   /** Every surface the session draws on; none for one an SDK host runs. */

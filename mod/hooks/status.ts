@@ -74,13 +74,17 @@ async function factsOf(
   told: Told,
   home: string | undefined,
 ): Promise<SessionFacts> {
-  const [sessionId, cwd, root, model, { version }, usage, now, settings] =
+  const [sessionId, cwd, root, model, version, usage, now, settings] =
     await Promise.all([
       host.sessionId(),
       host.cwd(),
       host.projectRoot(),
       host.model(),
-      host.version(),
+      // The lines are worth more than the one widget that shows the version
+      host.version().then(
+        said => said.version,
+        () => undefined,
+      ),
       host.usage(),
       host.now(),
       host.settings(),
@@ -94,9 +98,9 @@ async function factsOf(
     cwd,
     root,
     model,
-    version,
     now,
     usage,
+    ...(version !== undefined && { version }),
     ...(transcriptPath !== undefined && { transcriptPath }),
     ...(told.effort !== undefined && { effort: told.effort }),
     ...(typeof outputStyle === 'string' && { outputStyle }),

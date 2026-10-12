@@ -26,6 +26,8 @@ export type WorldOptions = {
    */
   readerSeenAt?: number
   usage?: SessionUsage
+  /** A Claude Code too old to say its version: the call is refused. */
+  hasNoVersion?: boolean
   /** The paths `$.fs.exists` finds. */
   existing?: readonly string[]
   /** The surfaces the session draws on, as `$.session.surfaces()` answers. */
@@ -117,7 +119,11 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   on('session.cwd', () => ({ value: '/work/app' }))
   on('session.root', () => ({ value: '/work/app' }))
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
-  on('session.version', () => ({ value: { version: '2.1.296' } }))
+  on('session.version', () =>
+    options.hasNoVersion
+      ? { deny: '$.session.version is not a function' }
+      : { value: { version: '2.1.296' } },
+  )
   on('session.usage', () => ({ value: options.usage ?? USAGE }))
   on('session.surfaces', () => ({ value: options.surfaces ?? [] }))
   on('settings.read', () => ({ value: options.settings ?? {} }))

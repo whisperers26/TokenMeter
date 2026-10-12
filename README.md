@@ -96,6 +96,34 @@ claude plugin update ccstatusline-desktop@ccstatusline-desktop
 claude -p "/ccstatusline-desktop jetbrains"   # then the JetBrains plugin, of the mod's new version
 ```
 
+### Uninstall
+
+From inside a session of Claude Code, in the desktop app or a terminal:
+
+```text
+/ccstatusline-desktop uninstall
+```
+
+It asks what to uninstall, and does it:
+
+| Answer | What happens |
+| --- | --- |
+| **The mod** | The mod is uninstalled, and the marketplace it was installed from is removed. The session you are in keeps the band until it ends; sessions you start afterwards have none. |
+| **The JetBrains plugin** | The [JetBrains plugin](#jetbrains-ides) is taken out of every supported IDE on the machine. Restart an IDE that is open to unload it; one that holds the plugin's files open has to be closed first. |
+| **Both** | The JetBrains plugin first, then the mod. |
+| **Not now** | Nothing. |
+
+Your layout in `~/.config/ccstatusline/settings.json` is ccstatusline's own and stays, and so does a ccstatusline of your own in the terminal. That one has [its own way out](#install), offered where its version does not go with the mod's.
+
+To uninstall by hand instead, or from a script, where there is nobody to answer the question:
+
+```bash
+claude plugin uninstall ccstatusline-desktop@ccstatusline-desktop
+claude plugin marketplace remove ccstatusline-desktop
+```
+
+The JetBrains plugin is removed by hand from an IDE's **Settings | Plugins | Installed**.
+
 ## Use
 
 There is nothing to do: the band draws itself wherever the mod is enabled.
@@ -107,13 +135,14 @@ There is nothing to do: the band draws itself wherever the mod is enabled.
 | Terminal with no `statusLine` | The mod, in the band above the prompt |
 | JetBrains AI Assistant chat with Claude | The [JetBrains plugin](#jetbrains-ides), above the chat's input, from the lines the mod runs |
 
-The command `/ccstatusline-desktop` does one of four things, by what follows it:
+The command `/ccstatusline-desktop` does one of five things, by what follows it:
 
 | Command | What it does |
 | --- | --- |
 | `/ccstatusline-desktop` | Prints the current lines as text, the path of the settings file behind them and the command that opens the configurator. When the band shows `ccstatusline desktop: the engine did not run (...)` instead of your lines, it says how the engine is being run. |
 | `/ccstatusline-desktop edit` | Where your terminal's ccstatusline is of a [version out of range](#install), first asks whether to upgrade or uninstall it, and while it is left as it is, stops there: [edit is off](#with-or-without-ccstatusline). Otherwise asks whether to open the configurator, and on a yes opens it in a new terminal window: through `start` on Windows, Terminal on macOS, and elsewhere the first of `x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`, `alacritty` and `xterm` on your `PATH`. A layout saved there shows in the band at its next refresh. In a `claude -p` run there is nobody to ask, and it prints the command to paste instead. It has been run on Windows only. |
 | `/ccstatusline-desktop update` | Asks what to [update](#update): the mod, the JetBrains plugin, or both. The recommended way to update the mod, and to install or update the JetBrains plugin. In a `claude -p` run there is nobody to ask, and it prints the commands to run instead. |
+| `/ccstatusline-desktop uninstall` | Asks what to [uninstall](#uninstall): the mod, the JetBrains plugin, or both. In a `claude -p` run there is nobody to ask, and it prints the command to run instead. |
 | `/ccstatusline-desktop jetbrains` | Installs the [JetBrains plugin](#jetbrains-ides) of the mod's version without asking: what a script, or a `claude -p` run, uses. |
 
 ### Options
@@ -247,7 +276,7 @@ The plugin also drops snapshots no session has written for a week.
 | `mod/hooks/` | The mod: one hooks module and the files it imports |
 | `mod/tests/` | The mod's tests |
 | `mod/engine/` | The vendored ccstatusline engine the mod runs |
-| `mod/scripts/` | What vendors the engine, what installs the JetBrains plugin from a release, what opens the configurator in a window of its own, what updates the mod, and what upgrades or uninstalls the terminal's ccstatusline |
+| `mod/scripts/` | What vendors the engine, what installs the JetBrains plugin from a release, what opens the configurator in a window of its own, what updates the mod, what uninstalls the mod and the JetBrains plugin, and what upgrades or uninstalls the terminal's ccstatusline |
 | `jetbrains/` | The JetBrains plugin: its sources, its tests, and the one file that builds it |
 | `.claude-plugin/marketplace.json` | Lists `mod/` as the plugin `ccstatusline-desktop` |
 
@@ -262,6 +291,7 @@ claude -p "/ccstatusline-desktop" --plugin-dir mod   # the real engine, end to e
 node --test mod/scripts/install-jetbrains.test.mjs   # the installer `/ccstatusline-desktop jetbrains` runs
 node --test mod/scripts/open-configurator.test.mjs   # what `/ccstatusline-desktop edit` opens the configurator with
 node --test mod/scripts/update-mod.test.mjs          # what `/ccstatusline-desktop update` updates the mod with
+node --test mod/scripts/uninstall-jetbrains.test.mjs # what `/ccstatusline-desktop uninstall` takes the JetBrains plugin out with
 node --test mod/scripts/terminal-ccstatusline.test.mjs   # what looks at the terminal's ccstatusline, upgrades and uninstalls it
 ```
 

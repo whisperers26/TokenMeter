@@ -24,6 +24,10 @@ function verbatim(text: string): string {
   return `\`${text}\``
 }
 
+/** The engine's command as a report shows it: to paste, and read to the letter. */
+export const commandLineOf = (engine: readonly string[]): string =>
+  verbatim(commandOf(engine))
+
 /**
  * What `/ccstatusline-desktop` answers: the status lines as plain text (or why there
  * are none), then where their layout is kept and how to change it.
@@ -39,7 +43,7 @@ export function reportOf(
   status: Status,
   { engine, settingsPath }: ReportDetails,
 ): string {
-  const command = verbatim(commandOf(engine))
+  const command = commandLineOf(engine)
 
   if ('failure' in status) {
     return [

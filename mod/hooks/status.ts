@@ -1,5 +1,6 @@
 import { parseAnsi } from './ansi'
 import type { Line } from './ansi'
+import { effortLevelOf } from './effort'
 import type { Host } from './host'
 import { pathIn } from './path-in'
 import { payloadOf } from './payload'
@@ -93,6 +94,10 @@ async function factsOf(
   const transcriptPath = await transcriptOf(host, told, home, root, sessionId)
   const { outputStyle } = settings
 
+  // A turn's own word is the session's effort as it ran; before one, or after
+  // /effort auto, the settings' is the nearest there is
+  const effort = told.effort ?? effortLevelOf(settings)
+
   return {
     sessionId,
     cwd,
@@ -102,7 +107,7 @@ async function factsOf(
     usage,
     ...(version !== undefined && { version }),
     ...(transcriptPath !== undefined && { transcriptPath }),
-    ...(told.effort !== undefined && { effort: told.effort }),
+    ...(effort !== undefined && { effort }),
     ...(typeof outputStyle === 'string' && { outputStyle }),
   }
 }

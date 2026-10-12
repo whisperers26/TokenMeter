@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { effortSaidBy } from '../hooks/effort'
+import { effortLevelOf, effortSaidBy } from '../hooks/effort'
 
 describe('effort', () => {
   test('reads the level /effort set the session to', () => {
@@ -28,5 +28,17 @@ describe('effort', () => {
         '',
       ].map(effortSaidBy),
     ).toEqual([undefined, undefined, undefined, undefined])
+  })
+
+  test('reads the effort a settings object names, when it names a level', () => {
+    expect(
+      [
+        { effortLevel: 'low' },
+        { effortLevel: 'xhigh' },
+        { effortLevel: 'ultracode' },
+        { effortLevel: 3 },
+        {},
+      ].map(effortLevelOf),
+    ).toEqual(['low', 'xhigh', undefined, undefined, undefined])
   })
 })

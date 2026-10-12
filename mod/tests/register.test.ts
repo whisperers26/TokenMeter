@@ -909,6 +909,38 @@ describe('register', () => {
     expect([runs, text?.startsWith('Nothing was updated.')]).toEqual([[], true])
   })
 
+  test('/ccstatusline-desktop uninstall runs what the dialog chose, not the engine', async ($, on) => {
+    const { runs } = worldOf(on, { run: () => printed('Rider2026.2: uninstalled\n') })
+
+    answering(on, () => 'The JetBrains plugin')
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run({ ...COMMAND, args: ' Uninstall ' })
+
+    const ran = runs.map(({ argv: [runtime, script = ''] }) => [
+      runtime,
+      script.replaceAll('\\', '/').split('/').slice(-2).join('/'),
+    ])
+
+    expect([ran, text]).toEqual([
+      [['node', 'scripts/uninstall-jetbrains.mjs']],
+      'Rider2026.2: uninstalled',
+    ])
+  })
+
+  test('/ccstatusline-desktop uninstall runs nothing where nobody answers the dialog', async ($, on) => {
+    const { runs } = worldOf(on)
+
+    on('tool.call', { tool: 'AskUserQuestion' }, () => ({ deny: 'no one to ask' }))
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run({ ...COMMAND, args: 'uninstall' })
+
+    expect([runs, text?.startsWith('Nothing was uninstalled.')]).toEqual([[], true])
+  })
+
   test('draws the lines again once the engine recovers', async ($, on) => {
     let isBroken = true
 

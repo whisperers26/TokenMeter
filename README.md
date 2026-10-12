@@ -16,7 +16,7 @@ Total: 22.7M | Session: 42.5% | Reset: 1hr 59m | Weekly: 15.0% | Weekly Reset: 3
 
 - **Desktop app**: your ccstatusline layout, with its widgets, colours, links and as many lines as you configured, refreshed after every turn and on a timer.
 - **Terminal**: ccstatusline exactly as before. The engine under `src/` is unmodified upstream code, so the `statusLine` command, the configuration TUI and every widget work as the [ccstatusline docs](docs/USAGE.md) describe.
-- **JetBrains IDEs**: the same lines above the input of an AI Assistant chat with Claude, drawn by a small plugin that [one command installs](#jetbrains-ides).
+- **JetBrains IDEs, Android Studio included**: the same lines above the input of an AI Assistant chat with Claude, drawn by a small plugin that [one command installs](#jetbrains-ides).
 - **One layout for all**: the mod reads the same `~/.config/ccstatusline/settings.json` the terminal does.
 
 ## Install
@@ -77,17 +77,17 @@ Session: 7.0% | Reset: 3hr 29m | Weekly: 10.0% | Weekly Reset: 2d 13hr 39m      
 
 Each chat shows the lines of its own Claude session, refreshed as the mod refreshes them. A chat narrower than a line wraps it, a link opens on a click, and a chat with another agent shows no band. Claude counts whether you added it as an ACP agent yourself or use the Claude agent AI Assistant comes with (that one from 0.1.5 of the mod, as it runs an older Claude Code of its own); Junie and other agents are not Claude Code, and the mod does not run in them.
 
-You need the mod installed in Claude Code as [above](#install), at 0.1.4 or later, and an IDE of the 2026.2 line or later with JetBrains AI Assistant and Claude as an ACP agent. Then, from any shell:
+You need the mod installed in Claude Code as [above](#install), at 0.1.4 or later, and an IDE of the 2026.1 line or later with JetBrains AI Assistant and Claude as an agent in it. Android Studio is such an IDE (from 0.1.6 of the mod), with JetBrains AI Assistant installed from its plugins page. Then, from any shell:
 
 ```bash
 claude -p "/token-meter jetbrains"
 ```
 
-or `/token-meter jetbrains` inside a session of Claude Code. That downloads the plugin of the mod's own version from this repository's [releases](https://github.com/whisperers26/ccstatusline-desktop/releases) and puts it in the plugins folder of every JetBrains IDE of 2026.2 or later it finds on the machine, saying which. Restart the IDE and open a chat with Claude. Run it again after the mod updates, so that the two stay of one version; an IDE that is open may hold the old plugin, and the command then says to close it first.
+or `/token-meter jetbrains` inside a session of Claude Code. That downloads the plugin of the mod's own version from this repository's [releases](https://github.com/whisperers26/ccstatusline-desktop/releases) and puts it in the plugins folder of every JetBrains IDE of 2026.1 or later it finds on the machine, Android Studio among them, saying which. Restart the IDE and open a chat with Claude. Run it again after the mod updates, so that the two stay of one version; an IDE that is open may hold the old plugin, and the command then says to close it first.
 
 ### Installing the zip by hand
 
-The plugin is not on JetBrains Marketplace. Where the command does not find your IDE, or you would rather not have it write there, install the same zip yourself; the steps are the same in every JetBrains IDE:
+The plugin is not on JetBrains Marketplace. Where the command does not find your IDE, or you would rather not have it write there, install the same zip yourself; the steps are the same in every JetBrains IDE, and in Android Studio:
 
 1. Download `token-meter-<version>.zip` from the [latest release](https://github.com/whisperers26/ccstatusline-desktop/releases/latest). Do not unpack it.
 2. In the IDE, open **Settings** (**Ctrl+Alt+S**, or **⌘ ,** on macOS) and choose **Plugins**.
@@ -102,7 +102,7 @@ Three things to know:
 
 - The plugin draws in a slot of AI Assistant's chat that JetBrains does not document, and reads the chat's session id from AI Assistant's own classes. An AI Assistant update can change either. Should the chat misbehave after one, disable the plugin until a release catches up. [Building the plugin](#development) against your own IDE tells you whether it still fits: the build checks that the slot is still declared and that the classes still fit, and fails where they do not.
 - From the first AI chat an IDE with the plugin shows, and until that IDE closes, every Claude Code session on the machine that is on no surface of Claude Code's own (an IDE's, an SDK host's, a `claude -p` run) keeps a small snapshot of its lines under `~/.cache/token-meter`, which costs it a run of the engine at its start, after each turn and on the timer. With no such IDE running, sessions keep none.
-- It has been run on a local project in Rider, and builds against the AI Assistant of PyCharm and RustRover too. A project opened through remote development has not been tried.
+- It has been run on a local project in Rider, and builds against the AI Assistant of PyCharm, RustRover and Android Studio too. A project opened through remote development has not been tried.
 
 ## How it works
 

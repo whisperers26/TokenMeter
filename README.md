@@ -33,24 +33,6 @@ or, inside a terminal session of Claude Code, `/plugin install ccstatusline-desk
 
 That installs the latest release, not the tip of `main`.
 
-### Coming from Token Meter
-
-Up to 0.1.6 the mod and its JetBrains plugin were called Token Meter, and the command was `/token-meter`. The new name is a new plugin to Claude Code, so remove the old one and install this one:
-
-```bash
-claude plugin uninstall token-meter@token-meter
-```
-
-```bash
-claude plugin marketplace remove token-meter
-```
-
-```bash
-claude plugin install ccstatusline-desktop --marketplace whisperers26/ccstatusline-desktop
-```
-
-Options you had set (`refreshSeconds`, `runtime`) need setting again. If you use a JetBrains IDE, run `claude -p "/ccstatusline-desktop jetbrains"` afterwards: it removes the Token Meter plugin from each IDE as it installs this one. The old snapshots folder, `~/.cache/token-meter`, is no longer used and can be deleted.
-
 If you have never used ccstatusline, the band shows its default layout. To build your own, open the configuration TUI in a terminal with `npx -y ccstatusline@latest`; [docs/USAGE.md](docs/USAGE.md) covers every widget and option.
 
 ## Use

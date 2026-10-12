@@ -19,13 +19,13 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { inflateRawSync } from 'node:zlib'
 
-const PLUGIN = 'ccstatusline-desktop'
+export const PLUGIN = 'ccstatusline-desktop'
 
 /** What a release's tag is spelled with before its version. */
 const TAG_PREFIX = `${PLUGIN}--v`
 
 /** The folder the plugin was installed in under its former name, Token Meter. */
-const FORMER_PLUGIN = 'token-meter'
+export const FORMER_PLUGIN = 'token-meter'
 const RELEASES = 'https://github.com/whisperers26/ccstatusline-desktop/releases'
 
 /** The folder AI Assistant is installed in, among an IDE's plugins. */

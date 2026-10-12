@@ -14,8 +14,8 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-const MARKETPLACE = 'ccstatusline-desktop'
-const PLUGIN = `ccstatusline-desktop@${MARKETPLACE}`
+export const MARKETPLACE = 'ccstatusline-desktop'
+export const PLUGIN = `ccstatusline-desktop@${MARKETPLACE}`
 
 /** How long each of the two steps may take: the first clones the marketplace. */
 const STEP_TIMEOUT_MS = 90_000
@@ -42,7 +42,7 @@ export function claudeCandidates(platform, env, home) {
 }
 
 /** Runs one `claude` command, and answers with what it printed. */
-function claude(command, args) {
+export function claude(command, args) {
   // A `.cmd` is run by the command interpreter, which wants the line whole
   const isScript = command.toLowerCase().endsWith('.cmd')
 

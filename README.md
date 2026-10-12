@@ -79,7 +79,7 @@ The recommended way to update is from inside a session of Claude Code, in the de
 /ccstatusline-desktop update
 ```
 
-It asks what to update, and does it:
+Where your terminal's own ccstatusline is of a [version out of range](#install), or was removed with its `statusLine` left behind, it first asks about that one: upgrade it, uninstall it, or continue anyway. Whatever you answer there, it then asks what to update, and does it:
 
 | Answer | What happens |
 | --- | --- |
@@ -141,7 +141,7 @@ The command `/ccstatusline-desktop` does one of five things, by what follows it:
 | --- | --- |
 | `/ccstatusline-desktop` | Prints the current lines as text, the path of the settings file behind them and the command that opens the configurator. When the band shows `ccstatusline desktop: the engine did not run (...)` instead of your lines, it says how the engine is being run. |
 | `/ccstatusline-desktop edit` | Where your terminal's ccstatusline is of a [version out of range](#install), first asks whether to upgrade or uninstall it, and while it is left as it is, stops there: [edit is off](#with-or-without-ccstatusline). Otherwise asks whether to open the configurator, and on a yes opens it in a new terminal window: through `start` on Windows, Terminal on macOS, and elsewhere the first of `x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`, `alacritty` and `xterm` on your `PATH`. A layout saved there shows in the band at its next refresh. In a `claude -p` run there is nobody to ask, and it prints the command to paste instead. It has been run on Windows only. |
-| `/ccstatusline-desktop update` | Asks what to [update](#update): the mod, the JetBrains plugin, or both. The recommended way to update the mod, and to install or update the JetBrains plugin. In a `claude -p` run there is nobody to ask, and it prints the commands to run instead. |
+| `/ccstatusline-desktop update` | Where your terminal's ccstatusline is of a [version out of range](#install), first asks whether to upgrade or uninstall it. Then asks what to [update](#update): the mod, the JetBrains plugin, or both. The recommended way to update the mod, and to install or update the JetBrains plugin. In a `claude -p` run there is nobody to ask, and it prints the commands to run instead. |
 | `/ccstatusline-desktop uninstall` | Asks what to [uninstall](#uninstall): the mod, the JetBrains plugin, or both. In a `claude -p` run there is nobody to ask, and it prints the command to run instead. |
 | `/ccstatusline-desktop jetbrains` | Installs the [JetBrains plugin](#jetbrains-ides) of the mod's version without asking: what a script, or a `claude -p` run, uses. |
 

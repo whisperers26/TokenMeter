@@ -58,7 +58,7 @@ export const USAGE: SessionUsage = {
 }
 
 /** The file a reader of snapshots keeps its sign of life in. */
-const READER = '/home/me/.cache/token-meter/reader'
+const READER = '/home/me/.cache/ccstatusline-desktop/reader'
 
 /** The key of the band Claude Code draws when the mod draws none. */
 const OWN_BAND = 'claude-code-own-band'

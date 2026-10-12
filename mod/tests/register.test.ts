@@ -22,13 +22,13 @@ const NOW = 1_700_000_900_000
 const READ = { readerSeenAt: NOW - 60_000 } as const
 
 /** The session's snapshot file. */
-const SNAPSHOT = '/home/me/.cache/token-meter/sessions/session-1.json'
+const SNAPSHOT = '/home/me/.cache/ccstatusline-desktop/sessions/session-1.json'
 
 const TRANSCRIPT = '/home/me/.claude/projects/-work-app/session-1.jsonl'
 
-/** `/token-meter` as the person types it, where no terminal has measured. */
+/** `/ccstatusline-desktop` as the person types it, where no terminal has measured. */
 const COMMAND = {
-  command: 'token-meter',
+  command: 'ccstatusline-desktop',
   args: '',
   origin: { kind: 'composer' },
   presentation: { isFullscreen: false, columns: 80 },
@@ -396,7 +396,7 @@ describe('register', () => {
     expect(rows.map(row => row.length)).toEqual([1])
     expect(rows[0]?.[0]).toMatchObject({ dimColor: true })
     expect(rows[0]?.[0]?.text).toMatch(
-      /^Token Meter: the engine did not run \(.*ENOENT: Command 'node' not found\)$/,
+      /^ccstatusline desktop: the engine did not run \(.*ENOENT: Command 'node' not found\)$/,
     )
   })
 
@@ -413,7 +413,7 @@ describe('register', () => {
     await clock.settle()
 
     expect(rowsOf(await ui.drawn()).map(row => row.map(span => span.text))).toEqual([
-      ['Token Meter: the engine failed (Invalid status JSON format: expected object)'],
+      ['ccstatusline desktop: the engine failed (Invalid status JSON format: expected object)'],
     ])
   })
 
@@ -427,7 +427,7 @@ describe('register', () => {
     await clock.settle()
 
     expect(rowsOf(await ui.drawn()).map(row => row.map(span => span.text))).toEqual([
-      ['Token Meter: the engine failed (exit code 3)'],
+      ['ccstatusline desktop: the engine failed (exit code 3)'],
     ])
   })
 
@@ -642,7 +642,7 @@ describe('register', () => {
     },
   )
 
-  test('/token-meter runs the engine and reports its lines as text', async ($, on) => {
+  test('/ccstatusline-desktop runs the engine and reports its lines as text', async ($, on) => {
     const { runs } = worldOf(on)
 
     await $.session.start(START)
@@ -655,17 +655,17 @@ describe('register', () => {
     ])
   })
 
-  test('/token-meter says why when the engine did not run', async ($, on) => {
+  test('/ccstatusline-desktop says why when the engine did not run', async ($, on) => {
     worldOf(on, { run: () => ({ deny: NO_NODE }) })
 
     await $.session.start(START)
 
     const { text } = await $.command.run(COMMAND)
 
-    expect(text).toMatch(/^Token Meter: the engine did not run \(.*ENOENT/)
+    expect(text).toMatch(/^ccstatusline desktop: the engine did not run \(.*ENOENT/)
   })
 
-  test("/token-meter names the engine's settings file under the home directory", async ($, on) => {
+  test("/ccstatusline-desktop names the engine's settings file under the home directory", async ($, on) => {
     worldOf(on)
 
     await $.session.start(START)
@@ -690,7 +690,7 @@ describe('register', () => {
     ])
   })
 
-  test('/token-meter jetbrains runs the installer, not the engine, and says what it said', async ($, on) => {
+  test('/ccstatusline-desktop jetbrains runs the installer, not the engine, and says what it said', async ($, on) => {
     const { runs } = worldOf(on, {
       run: () => printed('Rider2026.2: installed\n'),
     })
@@ -710,26 +710,26 @@ describe('register', () => {
     ])
   })
 
-  test('/token-meter jetbrains says why the installer failed', async ($, on) => {
+  test('/ccstatusline-desktop jetbrains says why the installer failed', async ($, on) => {
     worldOf(on, {
-      run: () => exited(1, 'Token Meter: no JetBrains IDE of 2026.2 or later was found\n'),
+      run: () => exited(1, 'ccstatusline desktop: no JetBrains IDE of 2026.2 or later was found\n'),
     })
 
     await $.session.start(START)
 
     const { text } = await $.command.run({ ...COMMAND, args: 'jetbrains' })
 
-    expect(text).toBe('Token Meter: no JetBrains IDE of 2026.2 or later was found')
+    expect(text).toBe('ccstatusline desktop: no JetBrains IDE of 2026.2 or later was found')
   })
 
-  test('/token-meter jetbrains says so when the installer did not run', async ($, on) => {
+  test('/ccstatusline-desktop jetbrains says so when the installer did not run', async ($, on) => {
     worldOf(on, { run: () => ({ deny: NO_NODE }) })
 
     await $.session.start(START)
 
     const { text } = await $.command.run({ ...COMMAND, args: 'jetbrains' })
 
-    expect(text).toMatch(/^Token Meter: the installer did not run \(.*ENOENT/)
+    expect(text).toMatch(/^ccstatusline desktop: the installer did not run \(.*ENOENT/)
   })
 
   test('draws the lines again once the engine recovers', async ($, on) => {

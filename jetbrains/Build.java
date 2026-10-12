@@ -26,7 +26,7 @@ import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 
 /**
- * Builds the Token Meter plugin for a JetBrains IDE with that IDE's own Java,
+ * Builds the ccstatusline desktop plugin for a JetBrains IDE with that IDE's own Java,
  * so the build needs nothing else installed and nothing downloaded:
  *
  * <pre>
@@ -47,7 +47,7 @@ import javax.tools.ToolProvider;
  * folder where it is not found in the IDE's plugins folder.
  */
 public final class Build {
-    private static final String PLUGIN = "token-meter";
+    private static final String PLUGIN = "ccstatusline-desktop";
 
     /** This file's own name. */
     private static final String SELF = "Build.java";
@@ -56,7 +56,7 @@ public final class Build {
     private static final String SLOT = "com.intellij.ml.llm.chatPanelComponentProvider";
 
     /** The class in the tests' folder that runs them all, and the method that does. */
-    private static final String TESTS = "io.github.whisperers26.tokenmeter.AllTests";
+    private static final String TESTS = "io.github.whisperers26.ccstatuslinedesktop.AllTests";
     private static final String TESTS_RUN = "run";
 
     private static final Pattern VERSION = Pattern.compile("\"version\"\\s*:\\s*\"([^\"]+)\"");

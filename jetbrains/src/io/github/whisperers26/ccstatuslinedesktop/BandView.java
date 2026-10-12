@@ -1,10 +1,10 @@
-package io.github.whisperers26.tokenmeter;
+package io.github.whisperers26.ccstatuslinedesktop;
 
-import io.github.whisperers26.tokenmeter.RowLayout.Laid;
-import io.github.whisperers26.tokenmeter.RowLayout.Placed;
-import io.github.whisperers26.tokenmeter.Snapshot.Row;
-import io.github.whisperers26.tokenmeter.Snapshot.Span;
-import io.github.whisperers26.tokenmeter.Snapshot.Trait;
+import io.github.whisperers26.ccstatuslinedesktop.RowLayout.Laid;
+import io.github.whisperers26.ccstatuslinedesktop.RowLayout.Placed;
+import io.github.whisperers26.ccstatuslinedesktop.Snapshot.Row;
+import io.github.whisperers26.ccstatuslinedesktop.Snapshot.Span;
+import io.github.whisperers26.ccstatuslinedesktop.Snapshot.Trait;
 import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Container;

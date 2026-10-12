@@ -1,8 +1,8 @@
-package io.github.whisperers26.tokenmeter;
+package io.github.whisperers26.ccstatuslinedesktop;
 
-import io.github.whisperers26.tokenmeter.Snapshot.Row;
-import io.github.whisperers26.tokenmeter.Snapshot.Span;
-import io.github.whisperers26.tokenmeter.Snapshot.Trait;
+import io.github.whisperers26.ccstatuslinedesktop.Snapshot.Row;
+import io.github.whisperers26.ccstatuslinedesktop.Snapshot.Span;
+import io.github.whisperers26.ccstatuslinedesktop.Snapshot.Trait;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;

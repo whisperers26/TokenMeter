@@ -8,11 +8,11 @@ const hostAt = (root: string) => ({ root }) as Host
 describe('status', () => {
   test("the engine is run from the plugin's folder, spelled the folder's way", () => {
     expect([
-      engineOf(hostAt('/plugins/token-meter'), 'node'),
-      engineOf(hostAt('C:\\plugins\\token-meter'), 'bun'),
+      engineOf(hostAt('/plugins/ccstatusline-desktop'), 'node'),
+      engineOf(hostAt('C:\\plugins\\ccstatusline-desktop'), 'bun'),
     ]).toEqual([
-      ['node', '/plugins/token-meter/engine/ccstatusline.js'],
-      ['bun', 'C:\\plugins\\token-meter\\engine\\ccstatusline.js'],
+      ['node', '/plugins/ccstatusline-desktop/engine/ccstatusline.js'],
+      ['bun', 'C:\\plugins\\ccstatusline-desktop\\engine\\ccstatusline.js'],
     ])
   })
 

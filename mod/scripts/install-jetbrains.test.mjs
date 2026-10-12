@@ -55,7 +55,7 @@ function zipOf(files) {
 test('a release keeps the zip under the tag of its version', () => {
   assert.equal(
     zipUrlOf('0.1.4'),
-    'https://github.com/whisperers26/ccstatusline-desktop/releases/download/token-meter--v0.1.4/token-meter-0.1.4.zip',
+    'https://github.com/whisperers26/ccstatusline-desktop/releases/download/ccstatusline-desktop--v0.1.4/ccstatusline-desktop-0.1.4.zip',
   )
 })
 
@@ -100,23 +100,23 @@ test('Windows and macOS keep plugins in a folder of the IDE’s own, Linux in th
 test('a zip is read whether its files are deflated or stored, its folders passed over', () => {
   const files = filesIn(
     zipOf([
-      { name: 'token-meter/', text: '', isStored: true },
-      { name: 'token-meter/lib/token-meter.jar', text: 'jar '.repeat(500) },
-      { name: 'token-meter/notes.txt', text: 'stored', isStored: true },
+      { name: 'ccstatusline-desktop/', text: '', isStored: true },
+      { name: 'ccstatusline-desktop/lib/ccstatusline-desktop.jar', text: 'jar '.repeat(500) },
+      { name: 'ccstatusline-desktop/notes.txt', text: 'stored', isStored: true },
     ]),
   )
 
   assert.deepEqual(
     files.map(({ name, content }) => [name, content.toString()]),
     [
-      ['token-meter/lib/token-meter.jar', 'jar '.repeat(500)],
-      ['token-meter/notes.txt', 'stored'],
+      ['ccstatusline-desktop/lib/ccstatusline-desktop.jar', 'jar '.repeat(500)],
+      ['ccstatusline-desktop/notes.txt', 'stored'],
     ],
   )
 })
 
 test('a zip whose file would land outside the plugins folder is refused', () => {
-  for (const name of ['../evil.jar', 'token-meter/../../evil.jar', '/evil.jar', 'C:/evil.jar', 'a\\..\\evil.jar']) {
+  for (const name of ['../evil.jar', 'ccstatusline-desktop/../../evil.jar', '/evil.jar', 'C:/evil.jar', 'a\\..\\evil.jar']) {
     assert.throws(() => filesIn(zipOf([{ name, text: 'x' }])), /unsafe name/, name)
   }
 })
@@ -126,18 +126,18 @@ test('what is not a zip is said to be none', () => {
 })
 
 test('the plugin takes the place of the one installed, and leaves other plugins alone', () => {
-  const plugins = mkdtempSync(join(tmpdir(), 'token-meter-test-'))
+  const plugins = mkdtempSync(join(tmpdir(), 'ccstatusline-desktop-test-'))
 
   try {
-    mkdirSync(join(plugins, 'token-meter', 'lib'), { recursive: true })
-    writeFileSync(join(plugins, 'token-meter', 'lib', 'old.jar'), 'old')
+    mkdirSync(join(plugins, 'ccstatusline-desktop', 'lib'), { recursive: true })
+    writeFileSync(join(plugins, 'ccstatusline-desktop', 'lib', 'old.jar'), 'old')
     mkdirSync(join(plugins, 'ml-llm'))
 
-    installIn([{ name: 'token-meter/lib/token-meter.jar', content: Buffer.from('new') }], plugins)
+    installIn([{ name: 'ccstatusline-desktop/lib/ccstatusline-desktop.jar', content: Buffer.from('new') }], plugins)
 
-    assert.deepEqual(readdirSync(plugins).sort(), ['ml-llm', 'token-meter'])
-    assert.deepEqual(readdirSync(join(plugins, 'token-meter', 'lib')), ['token-meter.jar'])
-    assert.equal(readFileSync(join(plugins, 'token-meter', 'lib', 'token-meter.jar'), 'utf8'), 'new')
+    assert.deepEqual(readdirSync(plugins).sort(), ['ccstatusline-desktop', 'ml-llm'])
+    assert.deepEqual(readdirSync(join(plugins, 'ccstatusline-desktop', 'lib')), ['ccstatusline-desktop.jar'])
+    assert.equal(readFileSync(join(plugins, 'ccstatusline-desktop', 'lib', 'ccstatusline-desktop.jar'), 'utf8'), 'new')
   } finally {
     rmSync(plugins, { recursive: true, force: true })
   }

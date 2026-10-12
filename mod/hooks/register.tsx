@@ -230,7 +230,7 @@ export const register: Register = (on, options) => {
     // the command alone
     await $.command
       .register({
-        name: 'token-meter',
+        name: 'ccstatusline-desktop',
         description:
           'Show the status lines as text, and where they are configured; with "jetbrains", install the JetBrains plugin',
         argumentHint: '[jetbrains]',
@@ -247,9 +247,9 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  on('command.run', { command: 'token-meter' }, async ($, e) => {
+  on('command.run', { command: 'ccstatusline-desktop' }, async ($, e) => {
     if (!bound) {
-      return { text: 'Token Meter: the session has not started' }
+      return { text: 'ccstatusline desktop: the session has not started' }
     }
 
     if (isJetBrainsAsked(e.args)) {

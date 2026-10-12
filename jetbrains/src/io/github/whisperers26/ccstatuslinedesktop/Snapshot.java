@@ -1,4 +1,4 @@
-package io.github.whisperers26.tokenmeter;
+package io.github.whisperers26.ccstatuslinedesktop;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -13,7 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * A Claude session's status lines as the Token Meter mod last ran them: what
+ * A Claude session's status lines as the ccstatusline desktop mod last ran them: what
  * the mod writes to the session's snapshot file, read back.
  *
  * @param sessionId the session the lines are of

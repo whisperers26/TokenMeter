@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Installs the Token Meter plugin in the JetBrains IDEs of this machine,
+// Installs the ccstatusline desktop plugin in the JetBrains IDEs of this machine,
 // Android Studio among them: the zip of this mod's own release, unpacked into
 // each IDE's plugins folder.
 //
 //   node mod/scripts/install-jetbrains.mjs              the zip of this version's release
 //   node mod/scripts/install-jetbrains.mjs --zip <file> a zip already on disk
 //
-// The mod runs it for `/token-meter jetbrains`. It needs nothing but the
+// The mod runs it for `/ccstatusline-desktop jetbrains`. It needs nothing but the
 // runtime the engine runs on: no IDE path, and no clone of the repository.
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -16,7 +16,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { inflateRawSync } from 'node:zlib'
 
-const PLUGIN = 'token-meter'
+const PLUGIN = 'ccstatusline-desktop'
 const RELEASES = 'https://github.com/whisperers26/ccstatusline-desktop/releases'
 
 /** The folder AI Assistant is installed in, among an IDE's plugins. */
@@ -263,10 +263,10 @@ async function main(args) {
   const { files, from } = await pluginFiles(zipPath)
 
   if (files.length === 0 || files.some(({ name }) => !name.startsWith(`${PLUGIN}/`))) {
-    throw new Error(`${from} is not the Token Meter plugin`)
+    throw new Error(`${from} is not the ccstatusline desktop plugin`)
   }
 
-  console.log(`Token Meter for JetBrains IDEs, from ${from}`)
+  console.log(`ccstatusline desktop for JetBrains IDEs, from ${from}`)
   console.log('')
 
   let installed = 0
@@ -302,7 +302,7 @@ async function main(args) {
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main(process.argv.slice(2)).catch(error => {
-    console.error(`Token Meter: ${error.message}`)
+    console.error(`ccstatusline desktop: ${error.message}`)
     process.exitCode = 1
   })
 }

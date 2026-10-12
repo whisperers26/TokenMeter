@@ -3,7 +3,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import { reportOf } from '../hooks/report'
 
 const DETAILS = {
-  engine: ['node', '/plugins/token-meter/engine/ccstatusline.js'],
+  engine: ['node', '/plugins/ccstatusline-desktop/engine/ccstatusline.js'],
   settingsPath: '/home/me/.config/ccstatusline/settings.json',
 } as const
 
@@ -35,14 +35,14 @@ describe('report', () => {
   test('a failure reads as the band shows it', () => {
     expect(
       reportOf({ failure: 'the engine did not run (ENOENT)' }, DETAILS),
-    ).toStartWith('Token Meter: the engine did not run (ENOENT)\n')
+    ).toStartWith('ccstatusline desktop: the engine did not run (ENOENT)\n')
   })
 
   test('says where the layout is kept and how to open the configurator', () => {
     const report = reportOf({ lines: [[{ text: 'x' }]] }, DETAILS)
 
     expect(report).toContain('/home/me/.config/ccstatusline/settings.json')
-    expect(report).toContain('node "/plugins/token-meter/engine/ccstatusline.js"')
+    expect(report).toContain('node "/plugins/ccstatusline-desktop/engine/ccstatusline.js"')
   })
 
   test('a failure adds what to set when the runtime is not found', () => {

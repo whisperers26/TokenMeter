@@ -8,7 +8,7 @@ import type { Status } from './status'
  * The folder snapshots and their reader's sign of life are kept in, under
  * the home directory on every platform, as the engine's settings are.
  */
-const FOLDER = ['.cache', 'token-meter'] as const
+const FOLDER = ['.cache', 'ccstatusline-desktop'] as const
 
 /** How long after a reader's last sign of life snapshots are kept for it. */
 const READER_TTL_MS = 5 * 60_000

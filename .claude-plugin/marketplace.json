@@ -1,20 +1,20 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
-  "name": "token-meter",
-  "description": "Token Meter: the ccstatusline status line in the Claude Code desktop app",
+  "name": "ccstatusline-desktop",
+  "description": "ccstatusline desktop: the ccstatusline status line in the Claude Code desktop app",
   "owner": {
     "name": "whisperers26",
     "url": "https://github.com/whisperers26"
   },
   "plugins": [
     {
-      "name": "token-meter",
+      "name": "ccstatusline-desktop",
       "description": "Your ccstatusline status line in the Claude Code desktop app: the same widgets, colours and settings, drawn in the band above the prompt.",
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/whisperers26/ccstatusline-desktop.git",
         "path": "mod",
-        "ref": "token-meter--v0.1.6"
+        "ref": "ccstatusline-desktop--v0.1.6"
       },
       "category": "productivity",
       "version": "0.1.6"

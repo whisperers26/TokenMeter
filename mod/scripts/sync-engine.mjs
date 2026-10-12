@@ -61,7 +61,7 @@ function localDist() {
     return dist;
 }
 
-const scratch = mkdtempSync(join(tmpdir(), 'token-meter-engine-'));
+const scratch = mkdtempSync(join(tmpdir(), 'ccstatusline-desktop-engine-'));
 
 try {
     const dist = isLocal ? localDist() : releasedDist(scratch);

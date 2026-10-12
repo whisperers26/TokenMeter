@@ -1,4 +1,4 @@
-package io.github.whisperers26.tokenmeter;
+package io.github.whisperers26.ccstatuslinedesktop;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;

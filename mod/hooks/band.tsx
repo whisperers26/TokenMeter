@@ -27,7 +27,7 @@ export function bandOf(
     return (
       <Box flexDirection="column">
         <Text dimColor wrap="truncate-end">
-          {`Token Meter: ${status.failure}`}
+          {`ccstatusline desktop: ${status.failure}`}
         </Text>
       </Box>
     )

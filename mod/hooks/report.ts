@@ -17,10 +17,10 @@ function commandOf([runtime = '', ...rest]: readonly string[]): string {
 }
 
 /**
- * What `/token-meter` answers: the status lines as plain text (or why there
+ * What `/ccstatusline-desktop` answers: the status lines as plain text (or why there
  * are none), then where their layout is kept and how to change it.
  *
- * The lines come first so that a headless run (`claude -p "/token-meter"`)
+ * The lines come first so that a headless run (`claude -p "/ccstatusline-desktop"`)
  * shows at a glance what the band would.
  *
  * @param status what the run the command just made came to
@@ -35,10 +35,10 @@ export function reportOf(
 
   if ('failure' in status) {
     return [
-      `Token Meter: ${status.failure}`,
+      `ccstatusline desktop: ${status.failure}`,
       '',
       `The engine is run as: ${command}`,
-      'If that runtime is not found, set the "runtime" option of the token-meter plugin to the full path of node or bun.',
+      'If that runtime is not found, set the "runtime" option of the ccstatusline-desktop plugin to the full path of node or bun.',
     ].join('\n')
   }
 

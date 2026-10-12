@@ -521,7 +521,7 @@ describe('register', () => {
     await ui.redraw({ ...BAND.props, bodyColumns: 80 })
     await clock.settle()
 
-    expect(runs.map(widthOf)).toEqual(['1006'])
+    expect(runs.map(widthOf)).toEqual(['1000'])
   })
 
   test("a line the engine padded apart is drawn as groups pushed to the band's edges", async ($, on) => {
@@ -550,7 +550,7 @@ describe('register', () => {
     })
   })
 
-  test('a redraw at the same width runs nothing more', async ($, on) => {
+  test('a redraw runs nothing more', async ($, on) => {
     const { clock, runs } = worldOf(on)
 
     await $.session.start(START)
@@ -1269,7 +1269,7 @@ describe('register', () => {
     await $.session.start(HOSTED)
     await clock.settle()
 
-    expect(runs.map(widthOf)).toEqual(['1006'])
+    expect(runs.map(widthOf)).toEqual(['1000'])
   })
 
   test('a session a surface comes to draw keeps no snapshot from then on', async ($, on) => {

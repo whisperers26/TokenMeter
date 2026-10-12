@@ -24,8 +24,6 @@ export type WorldOptions = {
    * persisted settings can hold. Left out, it is empty.
    */
   flagSettings?: Settings
-  /** The engine's own settings file as text; left out, there is none. */
-  engineSettings?: string
   /**
    * When a reader of snapshots was last there, in milliseconds since the
    * epoch: what its sign of life file holds. Left out, there is no such file.
@@ -179,9 +177,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     reads.push(plain(e.path))
 
     const text =
-      plain(e.path) === READER
-        ? options.readerSeenAt?.toString()
-        : options.engineSettings
+      plain(e.path) === READER ? options.readerSeenAt?.toString() : undefined
 
     return text === undefined
       ? { deny: `ENOENT: no such file or directory, open '${e.path}'` }

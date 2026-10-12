@@ -33,7 +33,11 @@ or, inside a terminal session of Claude Code, `/plugin install ccstatusline-desk
 
 That installs the latest release, not the tip of `main`.
 
-If you have never used ccstatusline, the band shows its default layout. To build your own, open the configuration TUI in a terminal with `npx -y ccstatusline@latest`; [docs/USAGE.md](docs/USAGE.md) covers every widget and option.
+The plugin is all you need. It carries its own copy of the ccstatusline engine, so ccstatusline itself does not have to be installed, and where you have never used it the band shows its default layout.
+
+To build your own layout, run `/ccstatusline-desktop` and paste the command it prints into a terminal. That opens the configuration TUI of the very engine the mod runs, so the two always agree. Without Claude Code at hand, `npx -y ccstatusline@2.2.32` opens the same TUI, of the same version, from npm. Do not reach for `ccstatusline@latest` here: once upstream is ahead of this fork, a newer TUI can save a widget or an option the bundled engine does not know yet, and the band may not show it. [docs/USAGE.md](docs/USAGE.md) covers every widget and option.
+
+If ccstatusline is already set up in your terminal, it carries on as before, whatever its version: your `statusLine` command still draws under the prompt there, and the mod stays out of its way. The band reads the same settings file, so the layout you have carries over; only a widget upstream added after 2.2.32 waits for this fork to catch up.
 
 ## Use
 
@@ -235,6 +239,8 @@ git merge upstream/main
 node mod/scripts/sync-engine.mjs       # vendor the engine of the new version
 claude plugin test mod
 ```
+
+Then set the new version where [Install](#install) names the engine's: in the `npx -y ccstatusline@<version>` command, and in the paragraph after it.
 
 `README.md` is this fork's own; `git config merge.ours.driver true` (once per clone) makes merges keep it without asking.
 

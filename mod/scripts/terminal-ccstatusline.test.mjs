@@ -250,6 +250,27 @@ test("upgrades a runner by the version its command names, the file as it was kep
   }
 })
 
+test("an upgraded runner's hooks run the upgraded command, and no other hook changes", () => {
+  const hooksOf = command => ({
+    UserPromptSubmit: [
+      { _tag: 'ccstatusline-managed', hooks: [{ type: 'command', command: `${command} --hook` }] },
+      { hooks: [{ type: 'command', command: 'log.sh' }] },
+    ],
+  })
+
+  const machine = machineOf({
+    settings: { ...statusLineOf('npx -y ccstatusline@2.1.0'), hooks: hooksOf('npx -y ccstatusline@2.1.0') },
+  })
+
+  try {
+    upgrade(machine.world, '2.2.32')
+
+    assert.deepEqual(machine.written().hooks, hooksOf('npx -y ccstatusline@2.2.32'))
+  } finally {
+    machine.drop()
+  }
+})
+
 test('upgrades to nothing that is not a version, and nothing that is not ccstatusline', () => {
   const machine = machineOf({ settings: statusLineOf('~/bin/statusline.sh') })
 

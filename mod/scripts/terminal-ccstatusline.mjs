@@ -68,6 +68,37 @@ export function installOf(command) {
 export const withSpec = (command, version) =>
   command.replace(/(^|\s)ccstatusline(?:@\S+)?(?=\s|$)/, `$1${PACKAGE}@${version}`)
 
+/**
+ * Claude Code's settings with the status line running `command`, and with it
+ * the hooks ccstatusline added for its widgets: each runs the status line's
+ * command with `--hook`, and would go on running the one it replaces.
+ *
+ * @param settings the settings file, parsed
+ * @param command the status line's new command
+ * @returns the settings to write in its place
+ */
+export function withCommand(settings, command) {
+  const before = `${settings.statusLine.command} --hook`
+
+  const moved = entry =>
+    Array.isArray(entry?.hooks)
+      ? { ...entry, hooks: entry.hooks.map(hook => (hook?.command === before ? { ...hook, command: `${command} --hook` } : hook)) }
+      : entry
+
+  return {
+    ...settings,
+    statusLine: { ...settings.statusLine, command },
+    ...(settings.hooks !== undefined && {
+      hooks: Object.fromEntries(
+        Object.entries(settings.hooks).map(([event, entries]) => [
+          event,
+          Array.isArray(entries) ? entries.map(moved) : entries,
+        ]),
+      ),
+    }),
+  }
+}
+
 /** A hooks entry less what ccstatusline put in it; undefined when nothing is left. */
 function withoutManagedHooks(entry) {
   if (entry?._tag === HOOK_TAG) {
@@ -292,11 +323,11 @@ export function upgrade(world, version) {
   }
 
   if (install.kind === 'runner') {
-    const statusLine = { ...settings.value.statusLine, command: withSpec(command, version) }
+    const upgraded = withSpec(command, version)
 
-    keep(settings, { ...settings.value, statusLine })
+    keep(settings, withCommand(settings.value, upgraded))
 
-    return [`The terminal's status line now runs ccstatusline ${version}: \`${statusLine.command}\``]
+    return [`The terminal's status line now runs ccstatusline ${version}: \`${upgraded}\``]
   }
 
   const manager = activeOf(world, globalsOf(world))?.manager ?? 'npm'

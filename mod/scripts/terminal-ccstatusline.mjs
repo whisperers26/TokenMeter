@@ -5,6 +5,7 @@
 //   node mod/scripts/terminal-ccstatusline.mjs detect            what runs, and its version, as JSON
 //   node mod/scripts/terminal-ccstatusline.mjs install 2.2.32    put that version where no status line runs
 //   node mod/scripts/terminal-ccstatusline.mjs upgrade 2.2.32    make it that version
+//   node mod/scripts/terminal-ccstatusline.mjs widen             on Windows, hand it the terminal's width
 //
 // The mod runs it where a terminal has no ccstatusline, or one of a version
 // that does not share a settings file with the mod's engine. Both read and write
@@ -30,6 +31,19 @@ const VERSION = /^\d+\.\d+\.\d+$/
  */
 const STATUS_LINE = { type: 'command', command: PACKAGE, padding: 0, refreshInterval: 10 }
 
+/** The variable ccstatusline takes the terminal's width from, ahead of looking for it. */
+const WIDTH = 'CCSTATUSLINE_WIDTH'
+
+/**
+ * What hands a status line the terminal's width on Windows, where ccstatusline
+ * does not look for it: Claude Code sets `COLUMNS` for the command, which it
+ * runs with Git Bash. Without a width, a flex separator pushes nothing right.
+ */
+const WIDTH_PREFIX = `${WIDTH}=$COLUMNS`
+
+/** A word that sets a variable for the command after it. */
+const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/
+
 /** How long a package manager may take over one command. */
 const STEP_TIMEOUT_MS = 90_000
 
@@ -38,6 +52,25 @@ const programOf = word =>
   (word.replace(/^["']|["']$/g, '').split(/[\\/]/).at(-1) ?? '')
     .toLowerCase()
     .replace(/\.(cmd|exe)$/, '')
+
+/** A command's words, less the variables it sets for itself first. */
+function wordsOf(command) {
+  const words = command.trim().split(/\s+/)
+  const at = words.findIndex(word => !ASSIGNMENT.test(word))
+
+  return at === -1 ? [] : words.slice(at)
+}
+
+/**
+ * A `statusLine` command that hands ccstatusline the terminal's width, as a
+ * Windows machine needs it to.
+ *
+ * @param command the command, as Claude Code's settings spell it
+ * @returns the command with the width set before it; the command itself where
+ *          it sets one already
+ */
+export const widened = command =>
+  command.trim().split(/\s+/).some(word => word.startsWith(`${WIDTH}=`)) ? command : `${WIDTH_PREFIX} ${command.trim()}`
 
 /**
  * How a `statusLine` command runs ccstatusline.
@@ -48,7 +81,7 @@ const programOf = word =>
  *          a script that wraps ccstatusline among them
  */
 export function installOf(command) {
-  const [first = '', ...rest] = command.trim().split(/\s+/)
+  const [first = '', ...rest] = wordsOf(command)
   const program = programOf(first)
 
   if (program === PACKAGE) {
@@ -197,7 +230,7 @@ function activeOf(world, globals) {
  * it names one by its path, and a command of that name on the `PATH` otherwise.
  */
 function isThere(world, command) {
-  const [first = ''] = command.trim().split(/\s+/)
+  const [first = ''] = wordsOf(command)
   const file = first.replace(/^["']|["']$/g, '')
 
   return /[\\/]/.test(file) ? existsSync(file) : managerOnPathOf(world) !== undefined
@@ -342,12 +375,13 @@ export function install(world, version) {
   }
 
   const path = settingsPathOf(world)
+  const statusLine = needsWidth(world) ? { ...STATUS_LINE, command: widened(PACKAGE) } : STATUS_LINE
 
   if (settings === undefined) {
     mkdirSync(dirname(path), { recursive: true })
-    writeFileSync(path, `${JSON.stringify({ statusLine: STATUS_LINE }, null, 2)}\n`)
+    writeFileSync(path, `${JSON.stringify({ statusLine }, null, 2)}\n`)
   } else {
-    keep(settings, { ...settings.value, statusLine: STATUS_LINE })
+    keep(settings, { ...settings.value, statusLine })
   }
 
   return [
@@ -357,6 +391,38 @@ export function install(world, version) {
     settings === undefined
       ? `The terminal's status line now runs it, set in \`${path}\`.`
       : `The terminal's status line now runs it, set in \`${path}\`; the file as it was is \`${path}${BACKUP_SUFFIX}\`.`,
+  ]
+}
+
+/**
+ * Whether a status line here has to be handed the terminal's width: on
+ * Windows, unless the person set one for every command themselves.
+ */
+const needsWidth = world => world.platform === 'win32' && !world.env[WIDTH]
+
+/**
+ * Has the terminal's ccstatusline handed the terminal's width, on a Windows
+ * machine where its command does not say one yet. The hooks ccstatusline
+ * added keep their command: they draw nothing.
+ *
+ * @returns what was done, one item a line; none where there was nothing to do
+ */
+export function widen(world) {
+  if (!needsWidth(world)) {
+    return []
+  }
+
+  const settings = settingsOf(world)
+  const command = commandOf(settings)
+
+  if (command === undefined || installOf(command) === undefined || widened(command) === command) {
+    return []
+  }
+
+  keep(settings, { ...settings.value, statusLine: { ...settings.value.statusLine, command: widened(command) } })
+
+  return [
+    `The terminal's status line is now handed the terminal's width, which ccstatusline does not find by itself on Windows: \`${widened(command)}\`. The file as it was is \`${settings.path}${BACKUP_SUFFIX}\`.`,
   ]
 }
 
@@ -376,8 +442,14 @@ function main([action, version]) {
     console.log(install(here(), version).join('\n'))
   } else if (action === 'upgrade') {
     console.log(upgrade(here(), version).join('\n'))
+  } else if (action === 'widen') {
+    const said = widen(here())
+
+    if (said.length > 0) {
+      console.log(said.join('\n'))
+    }
   } else {
-    throw new Error('say what to do: detect, install <version> or upgrade <version>')
+    throw new Error('say what to do: detect, install <version>, upgrade <version> or widen')
   }
 }
 

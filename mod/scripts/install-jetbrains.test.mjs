@@ -125,13 +125,15 @@ test('what is not a zip is said to be none', () => {
   assert.throws(() => filesIn(Buffer.from('<html>Not Found</html>')), /not a zip file/)
 })
 
-test('the plugin takes the place of the one installed, and leaves other plugins alone', () => {
+test('the plugin takes the place of the one installed, under this name or its former one, and leaves other plugins alone', () => {
   const plugins = mkdtempSync(join(tmpdir(), 'ccstatusline-desktop-test-'))
 
   try {
     mkdirSync(join(plugins, 'ccstatusline-desktop', 'lib'), { recursive: true })
     writeFileSync(join(plugins, 'ccstatusline-desktop', 'lib', 'old.jar'), 'old')
     mkdirSync(join(plugins, 'ml-llm'))
+    mkdirSync(join(plugins, 'token-meter', 'lib'), { recursive: true })
+    writeFileSync(join(plugins, 'token-meter', 'lib', 'token-meter.jar'), 'former')
 
     installIn([{ name: 'ccstatusline-desktop/lib/ccstatusline-desktop.jar', content: Buffer.from('new') }], plugins)
 

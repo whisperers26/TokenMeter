@@ -732,6 +732,50 @@ describe('register', () => {
     expect(text).toMatch(/^ccstatusline desktop: the installer did not run \(.*ENOENT/)
   })
 
+  test('/ccstatusline-desktop edit opens the configurator once the dialog says to, not the engine', async ($, on) => {
+    const { runs } = worldOf(on, {
+      run: () => printed('The configurator is open in a new terminal window.\n'),
+    })
+
+    on('tool.call', { tool: 'AskUserQuestion' }, ($, e) => ({
+      result: {
+        questions: e.questions,
+        answers: Object.fromEntries(
+          e.questions.map(({ question }) => [question, 'Open the configurator']),
+        ),
+      },
+    }))
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run({ ...COMMAND, args: ' Edit ' })
+
+    const ran = runs.map(({ argv: [runtime, script = ''] }) => [
+      runtime,
+      script.replaceAll('\\', '/').split('/').slice(-2).join('/'),
+    ])
+
+    expect([ran, text]).toEqual([
+      [['node', 'scripts/open-configurator.mjs']],
+      'The configurator is open in a new terminal window.',
+    ])
+  })
+
+  test('/ccstatusline-desktop edit opens nothing where nobody answers the dialog', async ($, on) => {
+    const { runs } = worldOf(on)
+
+    on('tool.call', { tool: 'AskUserQuestion' }, () => ({ deny: 'no one to ask' }))
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run({ ...COMMAND, args: 'edit' })
+
+    expect([runs, text]).toEqual([
+      [],
+      expect.stringMatching(/^The configurator was left closed\. .*engine.ccstatusline\.js"`$/),
+    ])
+  })
+
   test('draws the lines again once the engine recovers', async ($, on) => {
     let isBroken = true
 

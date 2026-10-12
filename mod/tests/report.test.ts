@@ -45,6 +45,28 @@ describe('report', () => {
     expect(report).toContain('node "/plugins/ccstatusline-desktop/engine/ccstatusline.js"')
   })
 
+  test('names the command that opens the configurator before the one to paste', () => {
+    expect(reportOf({ lines: [[{ text: 'x' }]] }, DETAILS).split('\n').at(-1)).toBe(
+      'To change them, run `/ccstatusline-desktop edit`, or this in a terminal: `node "/plugins/ccstatusline-desktop/engine/ccstatusline.js"`',
+    )
+  })
+
+  test('a Windows path keeps its backslashes where the report is drawn as markdown', () => {
+    const details = {
+      engine: ['node', 'C:\\Users\\me\\.claude\\plugins\\engine\\ccstatusline.js'],
+      settingsPath: 'C:\\Users\\me\\.config\\ccstatusline\\settings.json',
+    } as const
+
+    const command = '`node "C:\\Users\\me\\.claude\\plugins\\engine\\ccstatusline.js"`'
+    const report = reportOf({ lines: [[{ text: 'x' }]] }, details)
+
+    expect(report).toContain(command)
+    expect(report).toContain('`C:\\Users\\me\\.config\\ccstatusline\\settings.json`')
+    expect(reportOf({ failure: 'the engine did not run (ENOENT)' }, details)).toContain(
+      command,
+    )
+  })
+
   test('a failure adds what to set when the runtime is not found', () => {
     expect(reportOf({ failure: 'the engine did not run (ENOENT)' }, DETAILS)).toContain(
       'runtime',

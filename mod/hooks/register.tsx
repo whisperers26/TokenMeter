@@ -7,6 +7,7 @@ import type {
 } from 'claude-code'
 
 import { bandOf } from './band'
+import { editLayout, isEditAsked } from './edit'
 import type { Host } from './host'
 import { installJetBrains, isJetBrainsAsked } from './jetbrains'
 import { reportOf } from './report'
@@ -199,6 +200,8 @@ export const register: Register = (on, options) => {
       every: (ms, fn) => $.clock.every(ms, fn),
       run: (argv, init) => $.process.run(argv, init),
       invalidate: () => $.ui.invalidate('ui.render'),
+      // As with the version below: an older Claude Code rejects
+      ask: async (question, options) => $.ui.ask(question, options),
       sessionId: () => $.session.id(),
       cwd: () => $.session.cwd(),
       projectRoot: () => $.session.root(),
@@ -232,8 +235,8 @@ export const register: Register = (on, options) => {
       .register({
         name: 'ccstatusline-desktop',
         description:
-          'Show the status lines as text, and where they are configured; with "jetbrains", install the JetBrains plugin',
-        argumentHint: '[jetbrains]',
+          'Show the status lines as text, and where they are configured; with "edit", open the configurator; with "jetbrains", install the JetBrains plugin',
+        argumentHint: '[edit|jetbrains]',
       })
       .catch(() => undefined)
 
@@ -254,6 +257,10 @@ export const register: Register = (on, options) => {
 
     if (isJetBrainsAsked(e.args)) {
       return { text: await installJetBrains(bound, runtime) }
+    }
+
+    if (isEditAsked(e.args)) {
+      return { text: await editLayout(bound, runtime) }
     }
 
     await refresh(bound).catch(() => undefined)

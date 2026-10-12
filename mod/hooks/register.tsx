@@ -334,8 +334,9 @@ export const register: Register = (on, options) => {
 
     if (isUpdateAsked(e.args)) {
       // The terminal's own ccstatusline is brought up to date before the mod
-      // is: one left out of range does not hold the update back
-      const { aligned } = await alignTerminal(bound, runtime, 'again')
+      // is, an older one without a question: one left out of range does not
+      // hold the update back
+      const { aligned } = await alignTerminal(bound, runtime, 'updating')
       const updated = await update(bound, runtime)
 
       return { text: aligned ? `${aligned.said}\n\n${updated}` : updated }

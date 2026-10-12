@@ -304,7 +304,12 @@ export const register: Register = (on, options) => {
     }
 
     if (isUpdateAsked(e.args)) {
-      return { text: await update(bound, runtime) }
+      // The terminal's own ccstatusline is brought up to date before the mod
+      // is: one left out of range does not hold the update back
+      const { aligned } = await alignWithTerminal(bound, true)
+      const updated = await update(bound, runtime)
+
+      return { text: aligned ? `${aligned.said}\n\n${updated}` : updated }
     }
 
     if (isUninstallAsked(e.args)) {

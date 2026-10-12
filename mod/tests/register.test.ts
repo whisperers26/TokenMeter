@@ -870,6 +870,48 @@ describe('register', () => {
     ])
   })
 
+  test("/ccstatusline-desktop update first asks about a terminal's ccstatusline out of range, then what to update", async ($, on) => {
+    const { runs, terminalRuns } = worldOf(on, {
+      settings: OWN_STATUS_LINE,
+      stored: { terminalAnswered: '2.2.20 beside 2.2.32' },
+      terminal: e => printed(e.argv[2] === 'detect' ? terminalAt('2.2.20') : `${UPGRADED}\n`),
+      run: () => printed('Rider2026.2: installed\n'),
+    })
+
+    const asked = answering(on, question =>
+      question.startsWith('Your terminal') ? 'Upgrade to 2.2.32' : 'The JetBrains plugin',
+    )
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run({ ...COMMAND, args: 'update' })
+
+    expect([asked.map(question => question.slice(0, 13)), terminalRuns, runs.length, text]).toEqual([
+      ['Your terminal', 'What should b'],
+      [['detect'], ['upgrade', '2.2.32']],
+      1,
+      `${UPGRADED}\n\nRider2026.2: installed`,
+    ])
+  })
+
+  test("/ccstatusline-desktop update goes on to what to update past a terminal's ccstatusline left out of range", async ($, on) => {
+    const { runs } = worldOf(on, {
+      settings: OWN_STATUS_LINE,
+      terminal: () => printed(terminalAt('2.2.20')),
+      run: () => printed('Rider2026.2: installed\n'),
+    })
+
+    const asked = answering(on, question =>
+      question.startsWith('Your terminal') ? 'Continue anyway' : 'The JetBrains plugin',
+    )
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run({ ...COMMAND, args: 'update' })
+
+    expect([asked.length, runs.length, text]).toEqual([2, 1, 'Rider2026.2: installed'])
+  })
+
   test('/ccstatusline-desktop update runs what the dialog chose, not the engine', async ($, on) => {
     const { runs } = worldOf(on, { run: () => printed('Rider2026.2: installed\n') })
 

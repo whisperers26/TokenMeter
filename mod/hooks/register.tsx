@@ -8,6 +8,7 @@ import type {
 
 import { bandOf } from './band'
 import type { Host } from './host'
+import { installJetBrains, isJetBrainsAsked } from './jetbrains'
 import { reportOf } from './report'
 import { keepSnapshot, snapshotPathOf } from './snapshot'
 import { engineOf, engineSettingsPathIn, statusOf } from './status'
@@ -229,7 +230,9 @@ export const register: Register = (on, options) => {
     await $.command
       .register({
         name: 'token-meter',
-        description: 'Show the status lines as text, and where they are configured',
+        description:
+          'Show the status lines as text, and where they are configured; with "jetbrains", install the JetBrains plugin',
+        argumentHint: '[jetbrains]',
       })
       .catch(() => undefined)
 
@@ -243,9 +246,13 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  on('command.run', { command: 'token-meter' }, async () => {
+  on('command.run', { command: 'token-meter' }, async ($, e) => {
     if (!bound) {
       return { text: 'Token Meter: the session has not started' }
+    }
+
+    if (isJetBrainsAsked(e.args)) {
+      return { text: await installJetBrains(bound, runtime) }
     }
 
     await refresh(bound).catch(() => undefined)

@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 import { deflateRawSync } from 'node:zlib'
 
-import { filesIn, ideFoldersAmong, installIn, pluginsRootsOf, zipUrlOf } from './install-jetbrains.mjs'
+import { filesIn, ideFoldersAmong, installIn, pluginsRootsOf, versionAt, zipUrlOf } from './install-jetbrains.mjs'
 
 /** A zip of `files`, each deflated unless it says it is stored. */
 function zipOf(files) {
@@ -143,4 +143,17 @@ test('the plugin takes the place of the one installed, under this name or its fo
   } finally {
     rmSync(plugins, { recursive: true, force: true })
   }
+})
+
+test('the latest release is the one its page is named for', () => {
+  assert.deepEqual(
+    [
+      'https://github.com/whisperers26/ccstatusline-desktop/releases/tag/ccstatusline-desktop--v1.0.0',
+      'https://github.com/whisperers26/ccstatusline-desktop/releases/tag/ccstatusline-desktop--v',
+      'https://github.com/whisperers26/ccstatusline-desktop/releases/tag/v2.2.32',
+      'https://github.com/whisperers26/ccstatusline-desktop/releases',
+      '',
+    ].map(versionAt),
+    ['1.0.0', undefined, undefined, undefined, undefined],
+  )
 })

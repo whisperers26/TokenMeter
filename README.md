@@ -39,6 +39,31 @@ To build your own layout, run `/ccstatusline-desktop edit`. It asks first, then 
 
 If ccstatusline is already set up in your terminal, it carries on as before, whatever its version: your `statusLine` command still draws under the prompt there, and the mod stays out of its way. The band reads the same settings file, so the layout you have carries over; only a widget upstream added after 2.2.32 waits for this fork to catch up.
 
+### Update
+
+The recommended way to update is from inside a session of Claude Code, in the desktop app or a terminal:
+
+```text
+/ccstatusline-desktop update
+```
+
+It asks what to update, and does it:
+
+| Answer | What happens |
+| --- | --- |
+| **The mod** | The mod is updated to the latest release. Sessions you start afterwards run the new version; the one you are in keeps the version it started with. |
+| **The JetBrains plugin** | The [JetBrains plugin](#jetbrains-ides) of the mod's version is installed in every supported IDE on the machine, or put in place of the one there. This is also how to install it the first time. Restart an IDE to load it. |
+| **Both** | The mod first, then the plugin of that same new release, so that the two stay of one version. |
+| **Not now** | Nothing. |
+
+To update by hand instead, or from a script, where there is nobody to answer the question:
+
+```bash
+claude plugin marketplace update ccstatusline-desktop
+claude plugin update ccstatusline-desktop@ccstatusline-desktop
+claude -p "/ccstatusline-desktop jetbrains"   # then the JetBrains plugin, of the mod's new version
+```
+
 ## Use
 
 There is nothing to do: the band draws itself wherever the mod is enabled.
@@ -50,13 +75,14 @@ There is nothing to do: the band draws itself wherever the mod is enabled.
 | Terminal with no `statusLine` | The mod, in the band above the prompt |
 | JetBrains AI Assistant chat with Claude | The [JetBrains plugin](#jetbrains-ides), above the chat's input, from the lines the mod runs |
 
-The command `/ccstatusline-desktop` does one of three things, by what follows it:
+The command `/ccstatusline-desktop` does one of four things, by what follows it:
 
 | Command | What it does |
 | --- | --- |
 | `/ccstatusline-desktop` | Prints the current lines as text, the path of the settings file behind them and the command that opens the configurator. When the band shows `ccstatusline desktop: the engine did not run (...)` instead of your lines, it says how the engine is being run. |
 | `/ccstatusline-desktop edit` | Asks whether to open the configurator, and on a yes opens it in a new terminal window: through `start` on Windows, Terminal on macOS, and elsewhere the first of `x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`, `alacritty` and `xterm` on your `PATH`. A layout saved there shows in the band at its next refresh. In a `claude -p` run there is nobody to ask, and it prints the command to paste instead. It has been run on Windows only. |
-| `/ccstatusline-desktop jetbrains` | Installs the [JetBrains plugin](#jetbrains-ides). |
+| `/ccstatusline-desktop update` | Asks what to [update](#update): the mod, the JetBrains plugin, or both. The recommended way to update the mod, and to install or update the JetBrains plugin. In a `claude -p` run there is nobody to ask, and it prints the commands to run instead. |
+| `/ccstatusline-desktop jetbrains` | Installs the [JetBrains plugin](#jetbrains-ides) of the mod's version without asking: what a script, or a `claude -p` run, uses. |
 
 ### Options
 
@@ -87,13 +113,17 @@ Session: 7.0% | Reset: 3hr 29m | Weekly: 10.0% | Weekly Reset: 2d 13hr 39m      
 
 Each chat shows the lines of its own Claude session, refreshed as the mod refreshes them. A chat narrower than a line wraps it, a link opens on a click, and a chat with another agent shows no band. Claude counts whether you [added it as an ACP agent yourself](#claude-on-your-own-subscription) or use the Claude agent AI Assistant comes with (that one runs an older Claude Code of its own); Junie and other agents are not Claude Code, and the mod does not run in them.
 
-You need the mod installed in Claude Code as [above](#install) and an IDE of the 2026.1 line or later with JetBrains AI Assistant and Claude as an agent in it. Android Studio is such an IDE, with JetBrains AI Assistant installed from its plugins page. Then, from any shell:
+You need the mod installed in Claude Code as [above](#install) and an IDE of the 2026.1 line or later with JetBrains AI Assistant and Claude as an agent in it. Android Studio is such an IDE, with JetBrains AI Assistant installed from its plugins page. Then, inside a session of Claude Code, run
 
-```bash
-claude -p "/ccstatusline-desktop jetbrains"
+```text
+/ccstatusline-desktop update
 ```
 
-or `/ccstatusline-desktop jetbrains` inside a session of Claude Code. That downloads the plugin of the mod's own version from this repository's [releases](https://github.com/whisperers26/ccstatusline-desktop/releases) and puts it in the plugins folder of every JetBrains IDE of 2026.1 or later it finds on the machine, Android Studio among them, saying which. Restart the IDE and open a chat with Claude. Run it again after the mod updates, so that the two stay of one version; an IDE that is open may hold the old plugin, and the command then says to close it first.
+and answer **The JetBrains plugin**. That downloads the plugin of the mod's own version from this repository's [releases](https://github.com/whisperers26/ccstatusline-desktop/releases) and puts it in the plugins folder of every JetBrains IDE of 2026.1 or later it finds on the machine, Android Studio among them, saying which. Restart the IDE and open a chat with Claude. An IDE that is open may hold the old plugin, and the command then says to close it first.
+
+Later, the same command with **Both** [updates](#update) the mod and the plugin together, so that the two stay of one version.
+
+From a shell, with nobody to answer a question, `claude -p "/ccstatusline-desktop jetbrains"` installs the plugin of the mod's version straight away.
 
 ### Installing the zip by hand
 
@@ -185,7 +215,7 @@ The plugin also drops snapshots no session has written for a week.
 | `mod/hooks/` | The mod: one hooks module and the files it imports |
 | `mod/tests/` | The mod's tests |
 | `mod/engine/` | The vendored ccstatusline engine the mod runs |
-| `mod/scripts/` | What vendors the engine, what installs the JetBrains plugin from a release, and what opens the configurator in a window of its own |
+| `mod/scripts/` | What vendors the engine, what installs the JetBrains plugin from a release, what opens the configurator in a window of its own, and what updates the mod |
 | `jetbrains/` | The JetBrains plugin: its sources, its tests, and the one file that builds it |
 | `.claude-plugin/marketplace.json` | Lists `mod/` as the plugin `ccstatusline-desktop` |
 
@@ -199,6 +229,7 @@ claude plugin test mod                 # mod/tests, on the terminal and desktop 
 claude -p "/ccstatusline-desktop" --plugin-dir mod   # the real engine, end to end, with no model call
 node --test mod/scripts/install-jetbrains.test.mjs   # the installer `/ccstatusline-desktop jetbrains` runs
 node --test mod/scripts/open-configurator.test.mjs   # what `/ccstatusline-desktop edit` opens the configurator with
+node --test mod/scripts/update-mod.test.mjs          # what `/ccstatusline-desktop update` updates the mod with
 ```
 
 `claude --plugin-dir mod` loads the mod from this folder for one session and reloads it as you save. It also lays Claude Code's type declarations in `mod/.claude-plugin/types`, after which `npx tsc -p mod` type-checks the mod.
@@ -223,18 +254,18 @@ An install does not take whatever is on `main`. The marketplace entry in `.claud
 
 1. Set the new version in `mod/.claude-plugin/plugin.json`, and the same version and its tag (`ccstatusline-desktop--v<version>`) in `.claude-plugin/marketplace.json`. Commit and merge to `main`.
 2. `claude plugin tag mod --push` creates and pushes that tag, after checking the two files agree.
-3. Build the JetBrains plugin at that commit and publish the release with its zip, which is where `/ccstatusline-desktop jetbrains` and a manual install get it:
+3. Build the JetBrains plugin at that commit and publish the release with its zip, which is where `/ccstatusline-desktop update`, `/ccstatusline-desktop jetbrains` and a manual install get it:
 
    ```bash
    "<IDE home>/jbr/bin/java" jetbrains/Build.java
    gh release create ccstatusline-desktop--v<version> jetbrains/out/ccstatusline-desktop-<version>.zip --title "ccstatusline desktop <version>" --generate-notes
    ```
 
-   A release without the zip leaves `/ccstatusline-desktop jetbrains` of that version with nothing to download.
+   A release without the zip leaves those commands with nothing to download for that version. Publish it as the latest release: after it has updated the mod, `/ccstatusline-desktop update` takes the plugin of whichever release GitHub calls the latest.
 
-Machines that already have the mod get the release from `claude plugin update ccstatusline-desktop@ccstatusline-desktop`, or by themselves where the marketplace is set to update automatically.
+Machines that already have the mod get the release from [`/ccstatusline-desktop update`](#update), or by themselves where the marketplace is set to update automatically.
 
-The JetBrains plugin takes the mod's version when it is built. A machine gets a release's plugin by running `/ccstatusline-desktop jetbrains` again after the mod has updated.
+The JetBrains plugin takes the mod's version when it is built. A machine gets a release's plugin from the same command, answered with **Both** or, once the mod is updated, **The JetBrains plugin**.
 
 ### Keeping up with ccstatusline
 

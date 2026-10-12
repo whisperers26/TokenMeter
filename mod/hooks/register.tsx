@@ -15,6 +15,7 @@ import { keepSnapshot, snapshotPathOf } from './snapshot'
 import { engineOf, engineSettingsPathIn, statusOf } from './status'
 import type { Status, Told } from './status'
 import { alignTerminal, editOffOf } from './terminal'
+import { isUninstallAsked, uninstall } from './uninstall'
 import { isUpdateAsked, update } from './update'
 
 /** What runs the engine unless the person names another runtime. */
@@ -266,8 +267,8 @@ export const register: Register = (on, options) => {
       .register({
         name: 'ccstatusline-desktop',
         description:
-          'Show the status lines as text, and where they are configured; with "edit", open the configurator; with "update", update the mod and the JetBrains plugin; with "jetbrains", install the JetBrains plugin',
-        argumentHint: '[edit|update|jetbrains]',
+          'Show the status lines as text, and where they are configured; with "edit", open the configurator; with "update", update the mod and the JetBrains plugin; with "uninstall", uninstall either or both; with "jetbrains", install the JetBrains plugin',
+        argumentHint: '[edit|update|uninstall|jetbrains]',
       })
       .catch(() => undefined)
 
@@ -304,6 +305,10 @@ export const register: Register = (on, options) => {
 
     if (isUpdateAsked(e.args)) {
       return { text: await update(bound, runtime) }
+    }
+
+    if (isUninstallAsked(e.args)) {
+      return { text: await uninstall(bound, runtime) }
     }
 
     await refresh(bound).catch(() => undefined)

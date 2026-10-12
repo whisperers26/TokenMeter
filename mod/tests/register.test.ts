@@ -57,6 +57,13 @@ const MODEL_SWITCH = {
   pricing: 'catalog',
 } as const
 
+/** What the engine's `/effort` prints once it has set a level, hands back, or refuses. */
+const EFFORT_SET =
+  'Set effort level to max (this session only): Maximum capability with deepest reasoning'
+const EFFORT_AUTO = 'Effort level set to auto (this session only)'
+const EFFORT_USAGE =
+  'Usage: /effort <low|medium|high|xhigh|max|auto|ultracode [on|off]>'
+
 /** A line whose first words the engine wrapped in an OSC 8 hyperlink. */
 const LINKED_OUTPUT =
   '\x1b]8;;https://github.com/o/r/pull/7\x1b\\\x1b[32mPR #7\x1b]8;;\x1b\\ open\n'
@@ -200,6 +207,53 @@ describe('register', () => {
       transcript_path: TRANSCRIPT,
       effort: { level: 'xhigh' },
     })
+  })
+
+  test('shows the effort /effort set, in a run of its own and before any turn has said it', async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    on('command.run', { command: 'effort' }, () => ({ text: EFFORT_SET }))
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.command.run({ ...COMMAND, command: 'effort', args: 'max' })
+    await clock.settle()
+
+    expect(runs).toHaveLength(2)
+    expect(Object.keys(stdinOf(runs, 0) as object)).not.toContain('effort')
+    expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'max' } })
+  })
+
+  test('/effort auto hands the effort back: an earlier level is no longer passed on', async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    on('command.run', { command: 'effort' }, () => ({ text: EFFORT_AUTO }))
+
+    await $.session.start(START)
+    await $.classic.Stop({ stop_hook_active: false, effort: { level: 'xhigh' } })
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.command.run({ ...COMMAND, command: 'effort', args: 'auto' })
+    await clock.settle()
+
+    expect(Object.keys(stdinOf(runs, runs.length - 1) as object)).not.toContain('effort')
+  })
+
+  test('an /effort that set no level runs nothing and keeps the effort told before', async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    on('command.run', { command: 'effort' }, () => ({ text: EFFORT_USAGE }))
+
+    await $.session.start(START)
+    await $.classic.Stop({ stop_hook_active: false, effort: { level: 'xhigh' } })
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.command.run({ ...COMMAND, command: 'effort', args: '' })
+    await clock.settle()
+
+    expect(runs).toHaveLength(1)
+    expect(stdinOf(runs, 0)).toMatchObject({ effort: { level: 'xhigh' } })
   })
 
   test("finds the transcript by the session's id when no event named it", async ($, on) => {

@@ -8,6 +8,7 @@ import type {
 
 import { bandOf } from './band'
 import { editLayout, isEditAsked } from './edit'
+import { effortSaidBy } from './effort'
 import type { Host } from './host'
 import { installJetBrains, isJetBrainsAsked } from './jetbrains'
 import { reportOf } from './report'
@@ -372,6 +373,20 @@ export const register: Register = (on, options) => {
     request()
 
     return next(e)
+  })
+
+  // The terminal's status line command runs again once `/effort` has printed
+  // its answer, and shows the level it set: no event of a turn says it first
+  on('command.run', { command: 'effort' }, async ($, e, next) => {
+    const answered = await next(e)
+    const said = effortSaidBy(answered.text ?? '')
+
+    if (said !== undefined) {
+      told = { ...told, effort: said ?? undefined }
+      request()
+    }
+
+    return answered
   })
 
   on('classic.UserPromptSubmit', ($, e, next) => {

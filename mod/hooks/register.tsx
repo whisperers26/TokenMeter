@@ -60,16 +60,6 @@ function refreshMsOf({ refreshSeconds }: PluginOptions): number | undefined {
     : undefined
 }
 
-/** Whether Claude Code's settings run a status line command of their own. */
-function hasOwnStatusLine({ statusLine }: Settings): boolean {
-  const command =
-    typeof statusLine === 'object' && statusLine !== null
-      ? (statusLine as { command?: unknown }).command
-      : undefined
-
-  return typeof command === 'string' && command.trim() !== ''
-}
-
 /** The command the engine is run with: the option's, or node. */
 function runtimeOf({ runtime }: PluginOptions): string {
   return typeof runtime === 'string' && runtime.trim() !== ''
@@ -99,38 +89,13 @@ export const register: Register = (on, options) => {
   /** The effort the settings gave the session when last looked at. */
   let effectiveEffort: string | undefined
 
-  // A terminal that runs a status line of its own already shows these lines
-  // under the prompt; until the settings say it runs none, it is left alone
-  let isTerminalFree = false
+  // A terminal shows these lines under its prompt with a status line of its
+  // own: ccstatusline itself, which the mod installs where there is none. The
+  // band is the desktop app's
+  const drawsOn = (surface: RenderSurface) => surface === 'desktop'
 
-  const drawsOn = (surface: RenderSurface) =>
-    surface === 'desktop' || (surface === 'terminal' && isTerminalFree)
-
-  /** Whether this session has looked at the version of the terminal's ccstatusline. */
+  /** Whether this session has looked at the terminal's ccstatusline. */
   let isTerminalLookedAt = false
-
-  /**
-   * Asks about a terminal's ccstatusline of a version the engine does not
-   * share its settings with, and does what the person chose. One uninstalled
-   * frees the terminal: the band is drawn there from then on.
-   *
-   * @param isRepeated whether to ask about a version already answered about
-   * @returns the mismatch that still stands, and what was done about it
-   */
-  async function alignWithTerminal(host: Host, isRepeated: boolean) {
-    const alignment = await alignTerminal(host, runtime, isRepeated)
-
-    if (alignment.aligned?.isChanged) {
-      isTerminalFree = await host.settings().then(
-        settings => !hasOwnStatusLine(settings),
-        () => isTerminalFree,
-      )
-
-      host.invalidate()
-    }
-
-    return alignment
-  }
 
   /** The band's width on each surface that draws it, in character cells. */
   const columnsOf = new Map<RenderSurface, number>()
@@ -315,7 +280,6 @@ export const register: Register = (on, options) => {
     const settings = await $.settings.read().catch(() => undefined)
     const flag = await $.settings.read({ source: 'flag' }).catch(() => undefined)
 
-    isTerminalFree = settings !== undefined && !hasOwnStatusLine(settings)
     flagEffort = flag && effortLevelOf(flag)
     effectiveEffort =
       settings && effortOf(settings, flag ?? {}, await $.session.model().catch(() => ''))
@@ -359,7 +323,7 @@ export const register: Register = (on, options) => {
     if (isEditAsked(e.args)) {
       // A layout is about to be saved to the file the terminal's own
       // ccstatusline reads: the moment to ask again about one out of range
-      const { standing, aligned } = await alignWithTerminal(bound, true)
+      const { standing, aligned } = await alignTerminal(bound, runtime, 'again')
 
       // One left out of range reads the file a save here would write: edit is off
       const answered =
@@ -370,8 +334,9 @@ export const register: Register = (on, options) => {
 
     if (isUpdateAsked(e.args)) {
       // The terminal's own ccstatusline is brought up to date before the mod
-      // is: one left out of range does not hold the update back
-      const { aligned } = await alignWithTerminal(bound, true)
+      // is, an older one without a question: one left out of range does not
+      // hold the update back
+      const { aligned } = await alignTerminal(bound, runtime, 'updating')
       const updated = await update(bound, runtime)
 
       return { text: aligned ? `${aligned.said}\n\n${updated}` : updated }
@@ -491,7 +456,7 @@ export const register: Register = (on, options) => {
       isTerminalLookedAt = true
 
       host.after(0, () => {
-        void alignWithTerminal(host, false)
+        void alignTerminal(host, runtime, 'once')
           .then(({ aligned }) => aligned && host.log(aligned.said))
           .catch(() => undefined)
       })

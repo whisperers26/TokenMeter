@@ -8,11 +8,10 @@ import { test } from 'node:test'
 
 import {
   detect,
+  install,
   installOf,
   managerOf,
-  uninstall,
   upgrade,
-  withoutCcstatusline,
   withSpec,
   writtenLike,
 } from './terminal-ccstatusline.mjs'
@@ -107,44 +106,6 @@ test("a runner's command is made to name a version, its other words kept", () =>
   assert.deepEqual(
     ['npx -y ccstatusline@latest', 'bunx ccstatusline --config "a b.json"'].map(command => withSpec(command, '2.2.32')),
     ['npx -y ccstatusline@2.2.32', 'bunx ccstatusline@2.2.32 --config "a b.json"'],
-  )
-})
-
-test('settings lose the status line and the hooks ccstatusline added, and nothing else', () => {
-  assert.deepEqual(
-    withoutCcstatusline({
-      model: 'opus',
-      ...statusLineOf('ccstatusline'),
-      hooks: {
-        PreToolUse: [
-          { _tag: 'ccstatusline-managed', matcher: 'Skill', hooks: [{ type: 'command', command: 'ccstatusline --hook' }] },
-          { matcher: 'Bash', hooks: [{ type: 'command', command: 'audit.sh' }] },
-        ],
-        UserPromptSubmit: [
-          { hooks: [{ type: 'command', command: 'npx ccstatusline@latest --hook' }, { type: 'command', command: 'log.sh' }] },
-        ],
-        Stop: [{ _tag: 'ccstatusline-managed', hooks: [{ type: 'command', command: 'ccstatusline --hook' }] }],
-      },
-      env: { A: '1' },
-    }),
-    {
-      model: 'opus',
-      hooks: {
-        PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'audit.sh' }] }],
-        UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'log.sh' }] }],
-      },
-      env: { A: '1' },
-    },
-  )
-})
-
-test('settings whose only hooks were ccstatusline keep no hooks key', () => {
-  assert.deepEqual(
-    withoutCcstatusline({
-      ...statusLineOf('ccstatusline'),
-      hooks: { Stop: [{ _tag: 'ccstatusline-managed', hooks: [] }] },
-    }),
-    {},
   )
 })
 
@@ -330,49 +291,92 @@ test('upgrades to nothing that is not a version, and nothing that is not ccstatu
   }
 })
 
-test('uninstalls the status line and every global install, and keeps the file as it was', () => {
-  const before = { model: 'opus', ...statusLineOf('ccstatusline') }
-  const machine = machineOf({ settings: before, globals: { npm: '2.2.20', bun: '2.2.9' } })
+const INSTALLED = { statusLine: { type: 'command', command: 'ccstatusline', padding: 0, refreshInterval: 10 } }
 
-  try {
-    const said = uninstall(machine.world)
-
-    assert.deepEqual(
-      [machine.written(), JSON.parse(machine.backup()), machine.asked.slice(1), said.length],
-      [{ model: 'opus' }, before, ['npm uninstall -g ccstatusline', 'bun remove -g ccstatusline'], 4],
-    )
-  } finally {
-    machine.drop()
-  }
-})
-
-test('an uninstall whose package manager fails still takes the status line out, and says what stayed', () => {
-  const machine = machineOf({
-    settings: statusLineOf('ccstatusline'),
-    globals: { npm: '2.2.20' },
-    failing: ['npm uninstall -g ccstatusline'],
-  })
-
-  try {
-    const said = uninstall(machine.world)
-
-    assert.deepEqual(
-      [machine.written(), said[1]],
-      [{}, 'The global ccstatusline 2.2.20 was not removed: `npm uninstall -g ccstatusline` failed: npm error code EACCES'],
-    )
-  } finally {
-    machine.drop()
-  }
-})
-
-test('uninstalls nothing where there is no ccstatusline, and leaves another status line alone', () => {
-  const before = statusLineOf('~/bin/statusline.sh')
+test('installs globally with npm where no status line runs, and has the settings run it, the file as it was kept', () => {
+  const before = { model: 'opus', hooks: { Stop: [{ hooks: [{ type: 'command', command: 'log.sh' }] }] } }
   const machine = machineOf({ settings: before })
 
   try {
-    assert.throws(() => uninstall(machine.world), /no ccstatusline was found/)
+    const said = install(machine.world, '2.2.32')
+
+    assert.deepEqual(
+      [machine.asked.at(-1), machine.written(), JSON.parse(machine.backup()), said[0]],
+      [
+        'npm install -g ccstatusline@2.2.32',
+        { ...before, ...INSTALLED },
+        before,
+        'ccstatusline 2.2.32 is installed globally with npm.',
+      ],
+    )
+  } finally {
+    machine.drop()
+  }
+})
+
+test('installs where Claude Code has no settings file yet, and with bun where there is no npm', () => {
+  const machine = machineOf({ failing: ['npm root -g', 'npm --version'] })
+
+  try {
+    install(machine.world, '2.2.32')
+
+    assert.deepEqual([machine.asked.at(-1), machine.written()], ['bun add -g ccstatusline@2.2.32', INSTALLED])
+  } finally {
+    machine.drop()
+  }
+})
+
+test('an install keeps a global ccstatusline that is already there, and has the settings run it', () => {
+  const machine = machineOf({ settings: {}, globals: { bun: '2.2.30' } })
+
+  try {
+    const said = install(machine.world, '2.2.32')
+
+    assert.deepEqual(
+      [machine.asked.some(line => / -g ccstatusline@/.test(line)), machine.written(), said[0]],
+      [false, INSTALLED, 'The global ccstatusline 2.2.30 that bun holds was kept.'],
+    )
+  } finally {
+    machine.drop()
+  }
+})
+
+test('an install whose package manager fails leaves the settings as they were', () => {
+  const before = { model: 'opus' }
+  const machine = machineOf({ settings: before, failing: ['npm install -g ccstatusline@2.2.32'] })
+
+  try {
+    assert.throws(() => install(machine.world, '2.2.32'), /`npm install -g ccstatusline@2\.2\.32` failed: npm error code EACCES/)
     assert.deepEqual(machine.written(), before)
   } finally {
     machine.drop()
+  }
+})
+
+test('an install over a status line whose ccstatusline was removed installs the package again', () => {
+  const before = statusLineOf('ccstatusline')
+  const machine = machineOf({ settings: before })
+
+  try {
+    install(machine.world, '2.2.32')
+
+    assert.deepEqual([machine.asked.at(-1), machine.written()], ['npm install -g ccstatusline@2.2.32', before])
+  } finally {
+    machine.drop()
+  }
+})
+
+test('installs nothing that is not a version, over another status line, or beside settings that do not parse', () => {
+  const other = machineOf({ settings: statusLineOf('~/bin/statusline.sh') })
+  const broken = machineOf({ settings: '{ not json' })
+
+  try {
+    assert.throws(() => install(other.world, '2.2.32; rm -rf ~'), /is not a version/)
+    assert.throws(() => install(other.world, '2.2.32'), /runs a command of its own/)
+    assert.throws(() => install(broken.world, '2.2.32'))
+    assert.deepEqual([other.asked, broken.asked], [[], []])
+  } finally {
+    other.drop()
+    broken.drop()
   }
 })

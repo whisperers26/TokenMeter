@@ -1,7 +1,7 @@
 import type { Host } from './host'
 import { pathIn } from './path-in'
 
-/** The script that looks at the terminal's ccstatusline and changes it, under the plugin's own folder. */
+/** The script that looks at the terminal's ccstatusline, installs it and changes it, under the plugin's own folder. */
 const SCRIPT = ['scripts', 'terminal-ccstatusline.mjs'] as const
 
 /** The file that names the version of the engine the mod runs. */
@@ -22,10 +22,7 @@ const CHANGE_TIMEOUT_MS = 200_000
 /** The store's key for the mismatch the person last answered about. */
 const ANSWERED_KEY = 'terminalAnswered'
 
-const UNINSTALL = 'Uninstall it'
-const REMOVE_SETTING = 'Remove the setting'
 const CONTINUE = 'Continue anyway'
-const NOT_NOW = 'Not now'
 
 /** What continuing past a version out of range costs, as the dialog ends its question. */
 const continuingCosts = (until: string) =>
@@ -33,23 +30,34 @@ const continuingCosts = (until: string) =>
 
 /**
  * A terminal's ccstatusline that does not go with the mod's engine: of a
- * version that does not share settings with it, or no longer installed while
- * the `statusLine` still runs it.
+ * version that does not share settings with it, or not there at all.
  */
-export type Mismatch =
-  | {
-      /** The version the terminal's `statusLine` runs. */
-      version: string
-      /** The version of the mod's engine, which is the one to be at. */
-      recommended: string
-      /** Newer than the engine; older than what shares its settings otherwise. */
-      isNewer: boolean
-    }
-  | {
-      /** The command is gone: the terminal draws no status line, nor does the mod there. */
-      isMissing: true
-      recommended: string
-    }
+export type Mismatch = Version | Missing
+
+type Version = {
+  /** The version the terminal's `statusLine` runs. */
+  version: string
+  /** The version of the mod's engine, which is the one to be at. */
+  recommended: string
+  /** Newer than the engine; older than what shares its settings otherwise. */
+  isNewer: boolean
+}
+
+type Missing = {
+  /**
+   * The terminal draws no status line: its settings run none, or run a
+   * ccstatusline that is no longer installed. The mod draws none there.
+   */
+  isMissing: true
+  recommended: string
+}
+
+/**
+ * When a mismatch is asked about: `once` for each, `again` for one already
+ * answered about too, and `updating` as `again`, with an older ccstatusline
+ * upgraded without a question.
+ */
+export type Asking = 'once' | 'again' | 'updating'
 
 /** What became of a mismatch the person chose to end. */
 export type Aligned = {
@@ -102,11 +110,12 @@ async function ownCommandOf(host: Host) {
 /**
  * Looks for a terminal's ccstatusline whose version is out of the range the
  * mod's engine shares a settings file with: from the first release of the
- * engine's settings format to the engine's own version. One that was removed
- * while the `statusLine` still runs it is a mismatch too.
+ * engine's settings format to the engine's own version. A terminal with no
+ * status line is a mismatch too, and so is one whose `statusLine` still runs
+ * a ccstatusline that was removed.
  *
- * Never rejects, and runs nothing where the settings run no ccstatusline: a
- * look that could not be made finds no mismatch.
+ * Never rejects, and runs nothing where the settings run no status line, or
+ * another tool's: a look that could not be made finds no mismatch.
  *
  * @param host the calls on Claude Code the look is made with
  * @param runtime the command the script is run with: `node`, `bun`, or a path to one
@@ -114,11 +123,16 @@ async function ownCommandOf(host: Host) {
  */
 export async function mismatchOf(host: Host, runtime: string): Promise<Mismatch | undefined> {
   try {
-    if (!(await ownCommandOf(host))?.includes('ccstatusline')) {
-      return undefined
+    const command = (await ownCommandOf(host))?.trim() ?? ''
+    const [recommended = ''] = (await host.readFile(pathIn(host.root, ...ENGINE_VERSION))).trim().split(/\s+/)
+
+    if (command === '') {
+      return { isMissing: true, recommended }
     }
 
-    const [recommended = ''] = (await host.readFile(pathIn(host.root, ...ENGINE_VERSION))).trim().split(/\s+/)
+    if (!command.includes('ccstatusline')) {
+      return undefined
+    }
 
     const ran = await host.run([runtime, pathIn(host.root, ...SCRIPT), 'detect'], {
       timeoutMs: DETECT_TIMEOUT_MS,
@@ -142,46 +156,49 @@ export async function mismatchOf(host: Host, runtime: string): Promise<Mismatch 
   }
 }
 
-/** What a dialog asks, what the script is told for each answer that changes something, and the answer that changes nothing. */
+/** What a dialog asks, what the script is told for the answer that changes something, and the answer that changes nothing. */
 type Dialog = {
   question: string
   changes: Readonly<Record<string, readonly string[]>>
   leave: string
 }
 
-/** What the store keeps of a mismatch the person answered about. */
+/** What the store keeps of a mismatch the person answered about, or that could not be ended. */
 const answeredOf = (mismatch: Mismatch) =>
   `${'isMissing' in mismatch ? 'missing' : mismatch.version} beside ${mismatch.recommended}`
 
-/**
- * The dialog a mismatch is ended with: a newer one can only be uninstalled,
- * and one that is gone is installed again or has its setting removed.
- */
-function dialogOf(mismatch: Mismatch): Dialog {
-  const { recommended } = mismatch
+/** What a version out of range is brought to the engine's with: a newer one is installed again, an older one upgraded. */
+const choiceOf = ({ recommended, isNewer }: Version) =>
+  isNewer ? `Reinstall ${recommended}` : `Upgrade to ${recommended}`
 
+/**
+ * The dialog a version out of range is ended with: the version of the engine
+ * in its place, or nothing.
+ */
+function dialogOf(mismatch: Version): Dialog {
+  const { version, recommended, isNewer } = mismatch
+  const costs = continuingCosts(isNewer ? 'you reinstall it' : 'you upgrade it')
+
+  return {
+    question: isNewer
+      ? `Your terminal runs ccstatusline ${version}, newer than the ${recommended} ccstatusline desktop carries. They share one settings file, and a layout saved from here can lose what the newer one added. Reinstall ccstatusline ${recommended} in its place? ${costs}`
+      : `Your terminal runs ccstatusline ${version}, older than ccstatusline desktop shares a settings file with (${OLDEST_SHARING} to ${recommended}): it shows what the layout says to hide. Upgrade it to ${recommended}? ${costs}`,
+    changes: { [choiceOf(mismatch)]: ['upgrade', recommended] },
+    leave: CONTINUE,
+  }
+}
+
+/**
+ * What is done about a mismatch without asking: a terminal with no
+ * ccstatusline gets the engine's version, and so does an older one while the
+ * person is updating.
+ */
+function unaskedOf(mismatch: Mismatch, asking: Asking): readonly string[] | undefined {
   if ('isMissing' in mismatch) {
-    return {
-      question: `Your terminal's status line runs ccstatusline, which is no longer installed, so the terminal shows no status line. Install ccstatusline ${recommended}, or remove the setting and let ccstatusline desktop draw in the terminal too?`,
-      changes: { [`Install ${recommended}`]: ['upgrade', recommended], [REMOVE_SETTING]: ['uninstall'] },
-      leave: NOT_NOW,
-    }
+    return ['install', mismatch.recommended]
   }
 
-  const { version, isNewer } = mismatch
-  const uninstall = { [UNINSTALL]: ['uninstall'] }
-
-  return isNewer
-    ? {
-        question: `Your terminal runs ccstatusline ${version}, newer than the ${recommended} ccstatusline desktop carries. They share one settings file, and a layout saved from here can lose what the newer one added. Uninstall it and let ccstatusline desktop draw in the terminal too? ${continuingCosts('you uninstall it')}`,
-        changes: uninstall,
-        leave: CONTINUE,
-      }
-    : {
-        question: `Your terminal runs ccstatusline ${version}, older than ccstatusline desktop shares a settings file with (${OLDEST_SHARING} to ${recommended}): it shows what the layout says to hide. Upgrade it to ${recommended}, or uninstall it and let ccstatusline desktop draw in the terminal too? ${continuingCosts('you do one of the two')}`,
-        changes: { [`Upgrade to ${recommended}`]: ['upgrade', recommended], ...uninstall },
-        leave: CONTINUE,
-      }
+  return asking === 'updating' && !mismatch.isNewer ? ['upgrade', mismatch.recommended] : undefined
 }
 
 /**
@@ -191,43 +208,40 @@ function dialogOf(mismatch: Mismatch): Dialog {
  *
  * @param mismatch the mismatch that stands
  * @returns why edit is off and how the layout is changed meanwhile; undefined
- *          for a ccstatusline that is gone, which reads no layout
+ *          where the terminal has no ccstatusline, which reads no layout
  */
 export function editOffOf(mismatch: Mismatch): string | undefined {
   if ('isMissing' in mismatch) {
     return undefined
   }
 
-  const { version, recommended, isNewer } = mismatch
-  const choice = isNewer ? `**${UNINSTALL}**` : `**Upgrade to ${recommended}** or **${UNINSTALL}**`
+  const { version, recommended } = mismatch
 
   return [
     `\`/ccstatusline-desktop edit\` is off while your terminal runs ccstatusline ${version}: ccstatusline desktop shares its settings file with versions ${OLDEST_SHARING} to ${recommended} only.`,
     'To change the layout meanwhile, run your own ccstatusline in a terminal: the band draws what it saves.',
-    `To turn edit back on, run \`/ccstatusline-desktop edit\` again and choose ${choice}.`,
+    `To turn edit back on, run \`/ccstatusline-desktop edit\` again and choose **${choiceOf(mismatch)}**.`,
   ].join('\n')
 }
 
 /**
- * Asks what to do about a terminal's ccstatusline of a version out of range,
- * and does it: upgrades it to the engine's version, or uninstalls it. A newer
- * one can only be uninstalled; one that is gone is installed again, or the
- * setting that still runs it is removed.
+ * Brings a terminal's ccstatusline to the version of the mod's engine. A
+ * terminal with none gets it installed without a question: the mod draws no
+ * band there, and the status line is ccstatusline's own. One of a version out
+ * of range is asked about first: a newer one is installed again at the
+ * engine's version, an older one upgraded to it.
  *
  * Never rejects: a dialog nobody answered changes nothing, and a change that
- * failed is answered in words.
+ * failed is answered in words. An install that failed is not tried again
+ * until asked for with `again` or `updating`.
  *
  * @param host the calls on Claude Code the dialog and the runs are made with
  * @param runtime the command the script is run with: `node`, `bun`, or a path to one
- * @param isRepeated whether to ask about a mismatch the person already answered
- *                   about; without it, each mismatch is asked about once
+ * @param asking whether a mismatch already answered about is asked about
+ *               again, and whether an older ccstatusline is upgraded unasked
  * @returns the mismatch that still stands, if any, and what was done about it, if anything
  */
-export async function alignTerminal(
-  host: Host,
-  runtime: string,
-  isRepeated: boolean,
-): Promise<Alignment> {
+export async function alignTerminal(host: Host, runtime: string, asking: Asking): Promise<Alignment> {
   const mismatch = await mismatchOf(host, runtime)
 
   if (mismatch === undefined) {
@@ -236,49 +250,65 @@ export async function alignTerminal(
 
   const answered = answeredOf(mismatch)
 
-  if (!isRepeated && (await host.recall(ANSWERED_KEY).catch(() => undefined)) === answered) {
+  if (asking === 'once' && (await host.recall(ANSWERED_KEY).catch(() => undefined)) === answered) {
     return { standing: mismatch }
   }
 
-  const { question, changes, leave } = dialogOf(mismatch)
+  const unasked = unaskedOf(mismatch, asking)
+  let change = unasked
 
-  // Dismissed, or asked where there is nobody to answer: asked again next time
-  const answer = await host
-    .ask(question, { header: 'Terminal', options: [...Object.keys(changes), leave] })
-    .catch(() => undefined)
+  if (change === undefined && !('isMissing' in mismatch)) {
+    const { question, changes, leave } = dialogOf(mismatch)
 
-  if (answer === undefined) {
-    return { standing: mismatch }
+    // Dismissed, or asked where there is nobody to answer: asked again next time
+    const answer = await host
+      .ask(question, { header: 'Terminal', options: [...Object.keys(changes), leave] })
+      .catch(() => undefined)
+
+    if (answer === undefined) {
+      return { standing: mismatch }
+    }
+
+    await host.remember(ANSWERED_KEY, answered).catch(() => undefined)
+
+    change = Object.hasOwn(changes, answer) ? changes[answer] : undefined
   }
-
-  await host.remember(ANSWERED_KEY, answered).catch(() => undefined)
-
-  const change = Object.hasOwn(changes, answer) ? changes[answer] : undefined
 
   if (change === undefined) {
     return { standing: mismatch }
   }
 
+  const aligned = await changed(host, runtime, change)
+
+  if (aligned.isChanged) {
+    return { aligned }
+  }
+
+  // A change nobody chose is not made again at every session's first draw
+  if (unasked !== undefined) {
+    await host.remember(ANSWERED_KEY, answered).catch(() => undefined)
+  }
+
+  return { aligned, standing: mismatch }
+}
+
+/** Has the script make a change, and says what it said. Never rejects. */
+async function changed(host: Host, runtime: string, change: readonly string[]): Promise<Aligned> {
   try {
     const ran = await host.run([runtime, pathIn(host.root, ...SCRIPT), ...change], {
       timeoutMs: CHANGE_TIMEOUT_MS,
     })
 
-    const aligned = {
+    return {
       isChanged: ran.exitCode === 0,
       said: [ran.stdout.trim(), ran.stderr.trim()].filter(said => said !== '').join('\n'),
     }
-
-    return aligned.isChanged ? { aligned } : { aligned, standing: mismatch }
   } catch (error) {
     const said = error instanceof Error ? error.message : String(error)
 
     return {
-      standing: mismatch,
-      aligned: {
-        isChanged: false,
-        said: `ccstatusline desktop: the terminal's ccstatusline was left as it is (${said})`,
-      },
+      isChanged: false,
+      said: `ccstatusline desktop: the terminal's ccstatusline was left as it is (${said})`,
     }
   }
 }

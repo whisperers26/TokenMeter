@@ -73,6 +73,11 @@ const OLDER = { kind: 'global', manager: 'npm', version: '2.2.20' }
 const NEWER = { kind: 'runner', runner: 'npx', version: '2.3.0' }
 const MISSING = { kind: 'global', isMissing: true }
 
+const INSTALLED = "ccstatusline 2.2.32 is installed globally with npm.\nThe terminal's status line now runs it."
+
+/** The mismatch a terminal with no ccstatusline is. */
+const NONE = { isMissing: true, recommended: '2.2.32' } as const
+
 /** The mismatch OLDER is, while nothing ends it. */
 const STANDING = { version: '2.2.20', recommended: '2.2.32', isNewer: false }
 
@@ -101,40 +106,53 @@ describe('terminal', () => {
     })
   })
 
-  test('one that is gone can be installed again, have its setting removed, or be left', async () => {
-    const { host, asked } = hostOf({ found: MISSING, answer: 'Not now' })
+  test('a terminal whose settings run no status line is a mismatch, found without a look', async () => {
+    const { host, runs } = hostOf({ command: '' })
 
-    await alignTerminal(host, 'node', false)
-
-    expect(asked).toEqual([
-      [
-        expect.stringMatching(/^Your terminal's status line runs ccstatusline, which is no longer installed/),
-        { header: 'Terminal', options: ['Install 2.2.32', 'Remove the setting', 'Not now'] },
-      ],
-    ])
+    expect([await mismatchOf(host, 'node'), runs]).toEqual([NONE, []])
   })
 
-  test('one that is gone is installed at the version of the engine, or uninstalled for what is left of it', async () => {
-    const ran = await Promise.all(
-      ['Install 2.2.32', 'Remove the setting'].map(async answer => {
-        const { host, runs } = hostOf({ found: MISSING, answer })
+  test('a terminal with no ccstatusline gets the version of the engine installed, without a question', async () => {
+    const done = await Promise.all(
+      [{ command: '' }, { found: MISSING }].map(async machine => {
+        const { host, asked, runs } = hostOf({ ...machine, change: () => ended(0, `${INSTALLED}\n`) })
 
-        await alignTerminal(host, 'node', false)
-
-        return runs.at(-1)?.slice(2)
+        return [await alignTerminal(host, 'node', 'once'), asked, runs.at(-1)]
       }),
     )
 
-    expect(ran).toEqual([['upgrade', '2.2.32'], ['uninstall']])
+    expect(done).toEqual([
+      [{ aligned: { isChanged: true, said: INSTALLED } }, [], ['node', SCRIPT, 'install', '2.2.32']],
+      [{ aligned: { isChanged: true, said: INSTALLED } }, [], ['node', SCRIPT, 'install', '2.2.32']],
+    ])
   })
 
-  test('one that is gone and was answered about is not asked about again', async () => {
-    const { host, asked, store } = hostOf({ found: MISSING, answer: 'Not now' })
+  test('an install that failed says why, and is not tried again until it is asked for', async () => {
+    const { host, runs, store } = hostOf({
+      command: '',
+      change: () => ended(1, '', "ccstatusline desktop: the terminal's ccstatusline was left as it is (no npm)\n"),
+    })
 
-    await alignTerminal(host, 'node', false)
-    await alignTerminal(host, 'node', false)
+    const first = await alignTerminal(host, 'node', 'once')
 
-    expect([asked.length, store.get('terminalAnswered')]).toEqual([1, 'missing beside 2.2.32'])
+    await alignTerminal(host, 'node', 'once')
+
+    const tried = runs.length
+
+    await alignTerminal(host, 'node', 'again')
+
+    expect([first, store.get('terminalAnswered'), tried, runs.length]).toEqual([
+      {
+        standing: NONE,
+        aligned: {
+          isChanged: false,
+          said: "ccstatusline desktop: the terminal's ccstatusline was left as it is (no npm)",
+        },
+      },
+      'missing beside 2.2.32',
+      1,
+      2,
+    ])
   })
 
   test('looks with the script on the runtime the engine runs on', async () => {
@@ -145,19 +163,10 @@ describe('terminal', () => {
     expect(runs).toEqual([['bun', SCRIPT, 'detect']])
   })
 
-  test('runs nothing where the settings run no ccstatusline', async () => {
-    const found = await Promise.all(
-      ['', '~/bin/statusline.sh'].map(async command => {
-        const { host, runs } = hostOf({ command, found: OLDER })
+  test("runs nothing where the settings run another tool's status line", async () => {
+    const { host, runs } = hostOf({ command: '~/bin/statusline.sh', found: OLDER })
 
-        return [await mismatchOf(host, 'node'), runs]
-      }),
-    )
-
-    expect(found).toEqual([
-      [undefined, []],
-      [undefined, []],
-    ])
+    expect([await alignTerminal(host, 'node', 'again'), runs]).toEqual([{}, []])
   })
 
   test('a look that could not tell the version finds no mismatch', async () => {
@@ -170,15 +179,15 @@ describe('terminal', () => {
     expect(found).toEqual([undefined, undefined, undefined])
   })
 
-  test('an older one can be upgraded to the version of the engine, uninstalled, or left', async () => {
+  test('an older one can be upgraded to the version of the engine, or left', async () => {
     const { host, asked } = hostOf({ found: OLDER, answer: 'Continue anyway' })
 
-    await alignTerminal(host, 'node', false)
+    await alignTerminal(host, 'node', 'once')
 
     expect(asked).toEqual([
       [
         expect.stringMatching(/^Your terminal runs ccstatusline 2\.2\.20, older than .*\(2\.2\.29 to 2\.2\.32\)/),
-        { header: 'Terminal', options: ['Upgrade to 2.2.32', 'Uninstall it', 'Continue anyway'] },
+        { header: 'Terminal', options: ['Upgrade to 2.2.32', 'Continue anyway'] },
       ],
     ])
   })
@@ -188,15 +197,15 @@ describe('terminal', () => {
       [OLDER, NEWER].map(async found => {
         const { host, asked } = hostOf({ found, answer: 'Continue anyway' })
 
-        await alignTerminal(host, 'node', false)
+        await alignTerminal(host, 'node', 'once')
 
         return String(asked[0]?.[0])
       }),
     )
 
     expect(questions.map(question => question.slice(question.indexOf('You can continue anyway')))).toEqual([
-      'You can continue anyway: the band still draws, but /ccstatusline-desktop edit stays off until you do one of the two, and the layout is changed with your own ccstatusline.',
-      'You can continue anyway: the band still draws, but /ccstatusline-desktop edit stays off until you uninstall it, and the layout is changed with your own ccstatusline.',
+      'You can continue anyway: the band still draws, but /ccstatusline-desktop edit stays off until you upgrade it, and the layout is changed with your own ccstatusline.',
+      'You can continue anyway: the band still draws, but /ccstatusline-desktop edit stays off until you reinstall it, and the layout is changed with your own ccstatusline.',
     ])
   })
 
@@ -208,25 +217,25 @@ describe('terminal', () => {
       [
         '`/ccstatusline-desktop edit` is off while your terminal runs ccstatusline 2.2.20: ccstatusline desktop shares its settings file with versions 2.2.29 to 2.2.32 only.',
         'To change the layout meanwhile, run your own ccstatusline in a terminal: the band draws what it saves.',
-        'To turn edit back on, run `/ccstatusline-desktop edit` again and choose **Upgrade to 2.2.32** or **Uninstall it**.',
+        'To turn edit back on, run `/ccstatusline-desktop edit` again and choose **Upgrade to 2.2.32**.',
       ].join('\n'),
-      'To turn edit back on, run `/ccstatusline-desktop edit` again and choose **Uninstall it**.',
+      'To turn edit back on, run `/ccstatusline-desktop edit` again and choose **Reinstall 2.2.32**.',
     ])
   })
 
-  test('edit stays on beside a ccstatusline that is gone', () => {
-    expect(editOffOf({ isMissing: true, recommended: '2.2.32' })).toBeUndefined()
+  test('edit stays on where the terminal has no ccstatusline', () => {
+    expect(editOffOf(NONE)).toBeUndefined()
   })
 
-  test('a newer one can only be uninstalled, or left', async () => {
+  test('a newer one can be installed again at the version of the engine, or left', async () => {
     const { host, asked } = hostOf({ found: NEWER, answer: 'Continue anyway' })
 
-    await alignTerminal(host, 'node', false)
+    await alignTerminal(host, 'node', 'once')
 
     expect(asked).toEqual([
       [
         expect.stringMatching(/^Your terminal runs ccstatusline 2\.3\.0, newer than the 2\.2\.32 /),
-        { header: 'Terminal', options: ['Uninstall it', 'Continue anyway'] },
+        { header: 'Terminal', options: ['Reinstall 2.2.32', 'Continue anyway'] },
       ],
     ])
   })
@@ -234,18 +243,33 @@ describe('terminal', () => {
   test('upgrades on that answer, to the version of the engine, and says what the script said', async () => {
     const { host, runs } = hostOf({ found: OLDER, answer: 'Upgrade to 2.2.32' })
 
-    expect([await alignTerminal(host, 'node', false), runs.at(-1)]).toEqual([
+    expect([await alignTerminal(host, 'node', 'once'), runs.at(-1)]).toEqual([
       { aligned: { isChanged: true, said: UPGRADED } },
       ['node', SCRIPT, 'upgrade', '2.2.32'],
     ])
   })
 
-  test('uninstalls on that answer', async () => {
-    const { host, runs } = hostOf({ found: NEWER, answer: 'Uninstall it' })
+  test('installs the version of the engine over a newer one on that answer', async () => {
+    const { host, runs } = hostOf({ found: NEWER, answer: 'Reinstall 2.2.32' })
 
-    await alignTerminal(host, 'node', false)
+    await alignTerminal(host, 'node', 'once')
 
-    expect(runs.at(-1)).toEqual(['node', SCRIPT, 'uninstall'])
+    expect(runs.at(-1)).toEqual(['node', SCRIPT, 'upgrade', '2.2.32'])
+  })
+
+  test('while updating, an older one is upgraded without a question, and a newer one is still asked about', async () => {
+    const older = hostOf({ found: OLDER })
+    const newer = hostOf({ found: NEWER, answer: 'Continue anyway' })
+
+    await alignTerminal(older.host, 'node', 'updating')
+    await alignTerminal(newer.host, 'node', 'updating')
+
+    expect([older.asked, older.runs.at(-1), newer.asked.length, newer.runs.length]).toEqual([
+      [],
+      ['node', SCRIPT, 'upgrade', '2.2.32'],
+      1,
+      1,
+    ])
   })
 
   test('changes nothing on Continue anyway, on a dismissal, or on words of the person\'s own', async () => {
@@ -253,7 +277,7 @@ describe('terminal', () => {
       ['Continue anyway', undefined, 'Upgrade to 9.9.9'].map(async answer => {
         const { host, runs } = hostOf({ found: OLDER, answer })
 
-        return [await alignTerminal(host, 'node', false), runs.length]
+        return [await alignTerminal(host, 'node', 'once'), runs.length]
       }),
     )
 
@@ -268,8 +292,8 @@ describe('terminal', () => {
     const same = hostOf({ found: OLDER, answer: 'Continue anyway', answered: '2.2.20 beside 2.2.32' })
     const other = hostOf({ found: OLDER, answer: 'Continue anyway', answered: '2.2.9 beside 2.2.32' })
 
-    await alignTerminal(same.host, 'node', false)
-    await alignTerminal(other.host, 'node', false)
+    await alignTerminal(same.host, 'node', 'once')
+    await alignTerminal(other.host, 'node', 'once')
 
     expect([same.asked.length, other.asked.length, other.store.get('terminalAnswered')]).toEqual([
       0,
@@ -281,7 +305,7 @@ describe('terminal', () => {
   test('a dismissed dialog is asked again', async () => {
     const { host, store } = hostOf({ found: OLDER })
 
-    await alignTerminal(host, 'node', false)
+    await alignTerminal(host, 'node', 'once')
 
     expect(store.size).toBe(0)
   })
@@ -289,7 +313,7 @@ describe('terminal', () => {
   test('asked to repeat, it asks about a mismatch already answered about', async () => {
     const { host, asked } = hostOf({ found: OLDER, answer: 'Continue anyway', answered: '2.2.20 beside 2.2.32' })
 
-    await alignTerminal(host, 'node', true)
+    await alignTerminal(host, 'node', 'again')
 
     expect(asked).toHaveLength(1)
   })
@@ -297,11 +321,11 @@ describe('terminal', () => {
   test('a change that failed says why, and counts as none', async () => {
     const { host } = hostOf({
       found: OLDER,
-      answer: 'Uninstall it',
+      answer: 'Upgrade to 2.2.32',
       change: () => ended(1, '', "ccstatusline desktop: the terminal's ccstatusline was left as it is (EACCES)\n"),
     })
 
-    expect(await alignTerminal(host, 'node', false)).toEqual({
+    expect(await alignTerminal(host, 'node', 'once')).toEqual({
       standing: STANDING,
       aligned: {
         isChanged: false,
@@ -313,13 +337,13 @@ describe('terminal', () => {
   test('a change that did not run says so', async () => {
     const { host } = hostOf({
       found: OLDER,
-      answer: 'Uninstall it',
+      answer: 'Upgrade to 2.2.32',
       change: () => {
         throw new Error("ENOENT: Command 'node' not found")
       },
     })
 
-    expect(await alignTerminal(host, 'node', false)).toEqual({
+    expect(await alignTerminal(host, 'node', 'once')).toEqual({
       standing: STANDING,
       aligned: {
         isChanged: false,

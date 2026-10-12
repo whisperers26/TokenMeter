@@ -5,12 +5,12 @@ import { BAND } from './fixtures/band'
 import { ENGINE_OUTPUT } from './fixtures/engine-output'
 import { rowsOf } from './fixtures/rows-of'
 import { exited, isLeftAlone, printed, worldOf } from './fixtures/world'
-import type { World, WorldOptions } from './fixtures/world'
+import type { World } from './fixtures/world'
 
 /** A session the desktop app hosts: no terminal, a person at the prompt. */
 const START = { surface: null, isInteractive: true, cwd: '/work/app' } as const
 
-/** A session under a terminal that runs no status line of its own. */
+/** A session under a terminal. */
 const TERMINAL = { ...START, surface: 'terminal' } as const
 
 /** A session an SDK host runs for an IDE: no surface, nobody at the prompt. */
@@ -84,6 +84,10 @@ const terminalAt = (version: string) =>
 const UPGRADED =
   "ccstatusline 2.2.32 is installed globally with npm: the terminal's status line runs it."
 
+/** What the script says once it has put ccstatusline in a terminal that ran no status line. */
+const INSTALLED =
+  "ccstatusline 2.2.32 is installed globally with npm.\nThe terminal's status line now runs it."
+
 /**
  * Answers every dialog the mod opens with what `answerOf` says to its question.
  *
@@ -146,14 +150,12 @@ describe('register', () => {
   test('a band drawn before the session started is drawn again once it has', async ($, on) => {
     const { clock } = worldOf(on)
 
-    for (const surface of ['terminal', 'desktop'] as const) {
-      const ui = await $.ui.mount({ ...BAND, surface })
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
 
-      await $.session.start({ ...START, surface: 'terminal' })
-      await clock.settle()
+    await $.session.start(START)
+    await clock.settle()
 
-      expect(rowsOf(await ui.drawn())).toHaveLength(2)
-    }
+    expect(rowsOf(await ui.drawn())).toHaveLength(2)
   })
 
   test("runs the engine that ships in the plugin's own folder with node", async ($, on) => {
@@ -468,10 +470,10 @@ describe('register', () => {
     expect([runs, isLeftAlone(await ui.drawn())]).toEqual([[], true])
   })
 
-  test('stays quiet on a terminal that has a statusLine of its own', async ($, on) => {
+  test("leaves the band of a terminal alone: its status line is ccstatusline's own", async ($, on) => {
     const { clock, runs } = worldOf(on, { settings: OWN_STATUS_LINE })
 
-    await $.session.start({ ...START, surface: 'terminal' })
+    await $.session.start(TERMINAL)
 
     const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
 
@@ -480,16 +482,20 @@ describe('register', () => {
     expect([runs, isLeftAlone(await ui.drawn())]).toEqual([[], true])
   })
 
-  test('draws on a terminal that has no statusLine', async ($, on) => {
-    const { clock } = worldOf(on)
+  test('leaves the band of a terminal alone where it runs no status line yet, and installs ccstatusline there', async ($, on) => {
+    const { clock, runs, terminalRuns } = worldOf(on)
 
-    await $.session.start({ ...START, surface: 'terminal' })
+    await $.session.start(TERMINAL)
 
     const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
 
     await clock.settle()
 
-    expect(rowsOf(await ui.drawn())).toHaveLength(2)
+    expect([runs, terminalRuns, isLeftAlone(await ui.drawn())]).toEqual([
+      [],
+      [['install', '2.2.32']],
+      true,
+    ])
   })
 
   test("draws on desktop whatever the terminal's statusLine", async ($, on) => {
@@ -502,45 +508,6 @@ describe('register', () => {
     await clock.settle()
 
     expect(rowsOf(await ui.drawn())).toHaveLength(2)
-  })
-
-  test("tells the engine the band's width plus its flex reserve", async ($, on) => {
-    const { clock, runs, reads } = worldOf(on, {
-      engineSettings: JSON.stringify({ flexMode: 'full-minus-40' }),
-    })
-
-    await $.session.start(TERMINAL)
-    await $.ui.mount({ ...BAND, surface: 'terminal' })
-    await clock.settle()
-
-    expect([reads, runs.map(widthOf)]).toEqual([
-      ['/home/me/.config/ccstatusline/settings.json'],
-      ['140'],
-    ])
-  })
-
-  test("reserves the engine's default when it has no settings file", async ($, on) => {
-    const { clock, runs } = worldOf(on)
-
-    await $.session.start(TERMINAL)
-    await $.ui.mount({ ...BAND, surface: 'terminal' })
-    await clock.settle()
-
-    expect(runs.map(widthOf)).toEqual(['106'])
-  })
-
-  test("runs the engine again when the band's width changes", async ($, on) => {
-    const { clock, runs } = worldOf(on)
-
-    await $.session.start(TERMINAL)
-
-    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-
-    await clock.settle()
-    await ui.redraw({ ...BAND.props, bodyColumns: 80 })
-    await clock.settle()
-
-    expect(runs.map(widthOf)).toEqual(['106', '86'])
   })
 
   test('on desktop, where text is not laid out in cells, no line is cut or padded to a width', async ($, on) => {
@@ -620,20 +587,6 @@ describe('register', () => {
     expect(runs).toHaveLength(1)
   })
 
-  test('a band not yet measured gets the lines at their full width', async ($, on) => {
-    const { clock, runs } = worldOf(on)
-
-    await $.session.start(TERMINAL)
-    await $.ui.mount({
-      ...BAND,
-      surface: 'terminal',
-      props: { ...BAND.props, bodyColumns: 0 },
-    })
-    await clock.settle()
-
-    expect(runs.map(run => run.init?.env)).toEqual([undefined])
-  })
-
   test('says why in the band when the engine cannot be started', async ($, on) => {
     const { clock } = worldOf(on, { run: () => ({ deny: NO_NODE }) })
 
@@ -695,23 +648,21 @@ describe('register', () => {
     expect(isLeftAlone(await ui.drawn())).toBe(true)
   })
 
-  test('a hyperlink the engine wrote is drawn as a link on every surface', async ($, on) => {
+  test('a hyperlink the engine wrote is drawn as a link', async ($, on) => {
     const { clock } = worldOf(on, { run: () => printed(LINKED_OUTPUT) })
 
-    await $.session.start({ ...START, surface: 'terminal' })
+    await $.session.start(START)
 
-    for (const surface of ['terminal', 'desktop'] as const) {
-      const ui = await $.ui.mount({ ...BAND, surface })
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
 
-      await clock.settle()
+    await clock.settle()
 
-      expect(rowsOf(await ui.drawn())).toEqual([
-        [
-          { text: 'PR #7', color: '#00cd00', href: 'https://github.com/o/r/pull/7' },
-          { text: ' open', color: '#00cd00' },
-        ],
-      ])
-    }
+    expect(rowsOf(await ui.drawn())).toEqual([
+      [
+        { text: 'PR #7', color: '#00cd00', href: 'https://github.com/o/r/pull/7' },
+        { text: ' open', color: '#00cd00' },
+      ],
+    ])
   })
 
   test('runs the engine again when a turn completes', async ($, on) => {
@@ -986,6 +937,7 @@ describe('register', () => {
 
   test('/ccstatusline-desktop edit opens the configurator once the dialog says to, not the engine', async ($, on) => {
     const { runs } = worldOf(on, {
+      settings: OWN_STATUS_LINE,
       run: () => printed('The configurator is open in a new terminal window.\n'),
     })
 
@@ -1057,26 +1009,30 @@ describe('register', () => {
     ])
   })
 
-  test("/ccstatusline-desktop edit still opens the configurator beside a status line whose ccstatusline is gone", async ($, on) => {
-    const { runs } = worldOf(on, {
+  test("/ccstatusline-desktop edit installs ccstatusline where the terminal's is gone, then opens the configurator", async ($, on) => {
+    const { runs, terminalRuns } = worldOf(on, {
       settings: OWN_STATUS_LINE,
-      terminal: () => printed('{"kind":"global","isMissing":true}'),
+      terminal: e =>
+        printed(e.argv[2] === 'detect' ? '{"kind":"global","isMissing":true}' : `${INSTALLED}\n`),
       run: () => printed('The configurator is open in a new terminal window.'),
     })
 
-    answering(on, question =>
-      question.startsWith('Your terminal') ? 'Not now' : 'Open the configurator',
-    )
+    const asked = answering(on, () => 'Open the configurator')
 
     await $.session.start(START)
 
     const { text } = await $.command.run({ ...COMMAND, args: 'edit' })
 
-    expect([runs.length, text]).toEqual([1, 'The configurator is open in a new terminal window.'])
+    expect([asked.length, terminalRuns, runs.length, text]).toEqual([
+      1,
+      [['detect'], ['install', '2.2.32']],
+      1,
+      `${INSTALLED}\n\nThe configurator is open in a new terminal window.`,
+    ])
   })
 
   test('/ccstatusline-desktop edit opens nothing where nobody answers the dialog', async ($, on) => {
-    const { runs } = worldOf(on)
+    const { runs } = worldOf(on, { settings: OWN_STATUS_LINE })
 
     on('tool.call', { tool: 'AskUserQuestion' }, () => ({ deny: 'no one to ask' }))
 
@@ -1090,7 +1046,7 @@ describe('register', () => {
     ])
   })
 
-  test("/ccstatusline-desktop update first asks about a terminal's ccstatusline out of range, then what to update", async ($, on) => {
+  test("/ccstatusline-desktop update first upgrades a terminal's ccstatusline too old to share the settings, unasked, then asks what to update", async ($, on) => {
     const { runs, terminalRuns } = worldOf(on, {
       settings: OWN_STATUS_LINE,
       stored: { terminalAnswered: '2.2.20 beside 2.2.32' },
@@ -1098,26 +1054,24 @@ describe('register', () => {
       run: () => printed('Rider2026.2: installed\n'),
     })
 
-    const asked = answering(on, question =>
-      question.startsWith('Your terminal') ? 'Upgrade to 2.2.32' : 'The JetBrains plugin',
-    )
+    const asked = answering(on, () => 'The JetBrains plugin')
 
     await $.session.start(START)
 
     const { text } = await $.command.run({ ...COMMAND, args: 'update' })
 
     expect([asked.map(question => question.slice(0, 13)), terminalRuns, runs.length, text]).toEqual([
-      ['Your terminal', 'What should b'],
+      ['What should b'],
       [['detect'], ['upgrade', '2.2.32']],
       1,
       `${UPGRADED}\n\nRider2026.2: installed`,
     ])
   })
 
-  test("/ccstatusline-desktop update goes on to what to update past a terminal's ccstatusline left out of range", async ($, on) => {
+  test("/ccstatusline-desktop update asks about a terminal's ccstatusline newer than the engine, and goes on to what to update past one left as it is", async ($, on) => {
     const { runs } = worldOf(on, {
       settings: OWN_STATUS_LINE,
-      terminal: () => printed(terminalAt('2.2.20')),
+      terminal: () => printed(terminalAt('2.4.0')),
       run: () => printed('Rider2026.2: installed\n'),
     })
 
@@ -1133,7 +1087,10 @@ describe('register', () => {
   })
 
   test('/ccstatusline-desktop update runs what the dialog chose, not the engine', async ($, on) => {
-    const { runs } = worldOf(on, { run: () => printed('Rider2026.2: installed\n') })
+    const { runs } = worldOf(on, {
+      settings: OWN_STATUS_LINE,
+      run: () => printed('Rider2026.2: installed\n'),
+    })
 
     on('tool.call', { tool: 'AskUserQuestion' }, ($, e) => ({
       result: {
@@ -1160,7 +1117,7 @@ describe('register', () => {
   })
 
   test('/ccstatusline-desktop update runs nothing where nobody answers the dialog', async ($, on) => {
-    const { runs } = worldOf(on)
+    const { runs } = worldOf(on, { settings: OWN_STATUS_LINE })
 
     on('tool.call', { tool: 'AskUserQuestion' }, () => ({ deny: 'no one to ask' }))
 
@@ -1210,13 +1167,13 @@ describe('register', () => {
       run: () => (isBroken ? { deny: NO_NODE } : printed(ENGINE_OUTPUT)),
     })
 
-    await $.session.start(TERMINAL)
+    await $.session.start(START)
 
-    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
 
     await clock.settle()
     isBroken = false
-    await ui.redraw({ ...BAND.props, bodyColumns: 80 })
+    await $.turn.complete(TURN)
     await clock.settle()
 
     expect(rowsOf(await ui.drawn())).toHaveLength(2)
@@ -1405,7 +1362,7 @@ describe('register', () => {
       terminal: () => printed(terminalAt('2.2.30')),
     })
 
-    const asked = answering(on, () => 'Uninstall it')
+    const asked = answering(on, () => 'Upgrade to 2.2.32')
 
     await $.session.start(START)
     await $.ui.mount({ ...BAND, surface: 'desktop' })
@@ -1414,8 +1371,28 @@ describe('register', () => {
     expect([asked, terminalRuns, logged]).toEqual([[], [['detect']], []])
   })
 
-  test('looks at no terminal where the settings run no status line', async ($, on) => {
-    const { clock, terminalRuns } = worldOf(on)
+  test('at its first draw, installs ccstatusline where the terminal runs no status line, and says so', async ($, on) => {
+    const { clock, terminalRuns, logged } = worldOf(on, {
+      terminal: () => printed(`${INSTALLED}\n`),
+    })
+
+    const asked = answering(on, () => 'Continue anyway')
+
+    await $.session.start(START)
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+
+    await clock.settle()
+    await ui.redraw({ ...BAND.props, isWorking: true })
+    await clock.settle()
+
+    expect([asked, terminalRuns, logged]).toEqual([[], [['install', '2.2.32']], [INSTALLED]])
+  })
+
+  test("looks at no terminal where the settings run another tool's status line", async ($, on) => {
+    const { clock, terminalRuns } = worldOf(on, {
+      settings: { statusLine: { type: 'command', command: '~/bin/statusline.sh' } },
+    })
 
     await $.session.start(START)
     await $.ui.mount({ ...BAND, surface: 'desktop' })
@@ -1438,32 +1415,5 @@ describe('register', () => {
     await clock.settle()
 
     expect(asked).toEqual([])
-  })
-
-  test('a terminal whose ccstatusline was uninstalled gets the band', async ($, on) => {
-    const options: WorldOptions = {
-      settings: OWN_STATUS_LINE,
-      terminal: e => {
-        if (e.argv[2] === 'detect') {
-          return printed(terminalAt('2.4.0'))
-        }
-
-        options.settings = {}
-
-        return printed('ccstatusline was taken out.\n')
-      },
-    }
-
-    const { clock } = worldOf(on, options)
-
-    answering(on, () => 'Uninstall it')
-
-    await $.session.start(TERMINAL)
-
-    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-
-    await clock.settle()
-
-    expect(rowsOf(await ui.drawn())).toHaveLength(2)
   })
 })

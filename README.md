@@ -75,7 +75,7 @@ Session: 7.0% | Reset: 3hr 29m | Weekly: 10.0% | Weekly Reset: 2d 13hr 39m      
 ╰──────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-Each chat shows the lines of its own Claude session, refreshed as the mod refreshes them. A chat narrower than a line wraps it, a link opens on a click, and a chat with another agent shows no band. Claude counts whether you added it as an ACP agent yourself or use the Claude agent AI Assistant comes with (that one runs an older Claude Code of its own); Junie and other agents are not Claude Code, and the mod does not run in them.
+Each chat shows the lines of its own Claude session, refreshed as the mod refreshes them. A chat narrower than a line wraps it, a link opens on a click, and a chat with another agent shows no band. Claude counts whether you [added it as an ACP agent yourself](#claude-on-your-own-subscription) or use the Claude agent AI Assistant comes with (that one runs an older Claude Code of its own); Junie and other agents are not Claude Code, and the mod does not run in them.
 
 You need the mod installed in Claude Code as [above](#install) and an IDE of the 2026.1 line or later with JetBrains AI Assistant and Claude as an agent in it. Android Studio is such an IDE, with JetBrains AI Assistant installed from its plugins page. Then, from any shell:
 
@@ -103,6 +103,30 @@ Three things to know:
 - The plugin draws in a slot of AI Assistant's chat that JetBrains does not document, and reads the chat's session id from AI Assistant's own classes. An AI Assistant update can change either. Should the chat misbehave after one, disable the plugin until a release catches up. [Building the plugin](#development) against your own IDE tells you whether it still fits: the build checks that the slot is still declared and that the classes still fit, and fails where they do not.
 - From the first AI chat an IDE with the plugin shows, and until that IDE closes, every Claude Code session on the machine that is on no surface of Claude Code's own (an IDE's, an SDK host's, a `claude -p` run) keeps a small snapshot of its lines under `~/.cache/ccstatusline-desktop`, which costs it a run of the engine at its start, after each turn and on the timer. With no such IDE running, sessions keep none.
 - It has been run on a local project in Rider, and builds against the AI Assistant of PyCharm, RustRover and Android Studio too. A project opened through remote development has not been tried.
+
+### Claude on your own subscription
+
+The Claude agent AI Assistant comes with signs in with a JetBrains AI subscription or an Anthropic API key, not with a Claude plan. To have the chat run on your Pro or Max plan instead, add Claude Code to the IDE as an ACP agent of your own:
+
+1. Sign Claude Code in with your plan, if it is not already: run `claude` in a terminal, then `/login`.
+2. In the IDE, open the **AI Chat** tool window, click the more button (⋯) in its upper-right corner and choose **Add Custom Agent**. The IDE creates `~/.jetbrains/acp.json` and opens it.
+3. Add an entry under `agent_servers` and save the file:
+
+   ```json
+   {
+     "agent_servers": {
+       "Claude Max": {
+         "command": "npx",
+         "args": ["-y", "@agentclientprotocol/claude-agent-acp"]
+       }
+     }
+   }
+   ```
+
+   On Windows the command is `npx.cmd`. The key is the name the chat shows, and is yours to choose.
+4. Pick that agent in the chat's agent selector. Where it does not show, check the file's JSON and restart the IDE.
+
+The entry runs the [ACP adapter for Claude Code](https://github.com/agentclientprotocol/claude-agent-acp) with Node.js, which the mod needs on your `PATH` anyway, and the adapter uses the sign-in of step 1. Leave `env` out of the entry: an `ANTHROPIC_API_KEY` there bills the API, not your plan. JetBrains describes the file's other fields in its [ACP page](https://www.jetbrains.com/help/ai-assistant/acp.html).
 
 ## How it works
 

@@ -1,6 +1,6 @@
 {
   "name": "token-meter",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Your ccstatusline status line in the Claude Code desktop app: the same widgets, colours and settings, drawn in the band above the prompt.",
   "author": {
     "name": "whisperers26",

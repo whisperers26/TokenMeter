@@ -4,10 +4,13 @@
 // each IDE's plugins folder.
 //
 //   node mod/scripts/install-jetbrains.mjs              the zip of this version's release
+//   node mod/scripts/install-jetbrains.mjs --latest     the zip of the latest release
 //   node mod/scripts/install-jetbrains.mjs --zip <file> a zip already on disk
 //
-// The mod runs it for `/ccstatusline-desktop jetbrains`. It needs nothing but the
-// runtime the engine runs on: no IDE path, and no clone of the repository.
+// The mod runs it for `/ccstatusline-desktop jetbrains`, and with `--latest` once
+// `/ccstatusline-desktop update` has updated the mod, whose new version this
+// copy of the script is not part of. It needs nothing but the runtime the
+// engine runs on: no IDE path, and no clone of the repository.
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { get } from 'node:https'
@@ -17,6 +20,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { inflateRawSync } from 'node:zlib'
 
 const PLUGIN = 'ccstatusline-desktop'
+
+/** What a release's tag is spelled with before its version. */
+const TAG_PREFIX = `${PLUGIN}--v`
 
 /** The folder the plugin was installed in under its former name, Token Meter. */
 const FORMER_PLUGIN = 'token-meter'
@@ -51,7 +57,21 @@ const DEFLATED = 8
 
 /** Where a release keeps the plugin's zip. */
 export const zipUrlOf = version =>
-  `${RELEASES}/download/${PLUGIN}--v${version}/${PLUGIN}-${version}.zip`
+  `${RELEASES}/download/${TAG_PREFIX}${version}/${PLUGIN}-${version}.zip`
+
+/**
+ * The version of the release a page's address names.
+ *
+ * @param address where `releases/latest` sends its reader: the latest release's own page
+ * @returns the version in that release's tag; undefined where the address names no release of the plugin
+ */
+export function versionAt(address) {
+  const tag = decodeURIComponent(address.split('/').at(-1) ?? '')
+
+  return tag.startsWith(TAG_PREFIX) && tag.length > TAG_PREFIX.length
+    ? tag.slice(TAG_PREFIX.length)
+    : undefined
+}
 
 /**
  * The folders IDEs keep the plugins a person installs in, one per IDE and
@@ -218,6 +238,27 @@ function download(url, redirectsLeft = MAX_REDIRECTS) {
   })
 }
 
+/** Where a URL sends its reader on; undefined when it answers for itself. */
+function redirectOf(url) {
+  return new Promise((resolve, reject) => {
+    get(url, { headers: { 'User-Agent': PLUGIN } }, response => {
+      response.resume()
+      resolve(response.headers.location)
+    }).on('error', reject)
+  })
+}
+
+/** The version of the latest release. */
+async function latestVersion() {
+  const version = versionAt((await redirectOf(`${RELEASES}/latest`)) ?? '')
+
+  if (version === undefined) {
+    throw new Error(`${RELEASES}/latest names no release of the plugin`)
+  }
+
+  return version
+}
+
 /** The mod's version: the release whose zip fits it. */
 function versionOfMod() {
   const manifest = join(dirname(fileURLToPath(import.meta.url)), '..', '.claude-plugin', 'plugin.json')
@@ -225,15 +266,20 @@ function versionOfMod() {
   return JSON.parse(readFileSync(manifest, 'utf8')).version
 }
 
-/** The plugin's files: those of the zip named, else of this version's release. */
-async function pluginFiles(zipPath) {
+/**
+ * The plugin's files: those of the zip named, else of the latest release when
+ * that is asked for, else of this version's release.
+ */
+async function pluginFiles(zipPath, isLatest) {
   if (zipPath !== undefined) {
     return { files: filesIn(readFileSync(zipPath)), from: zipPath }
   }
 
-  const url = zipUrlOf(versionOfMod())
+  let url = `${RELEASES}/latest`
 
   try {
+    url = zipUrlOf(isLatest ? await latestVersion() : versionOfMod())
+
     return { files: filesIn(await download(url)), from: url }
   } catch (error) {
     throw new Error(
@@ -266,7 +312,7 @@ async function main(args) {
     )
   }
 
-  const { files, from } = await pluginFiles(zipPath)
+  const { files, from } = await pluginFiles(zipPath, args.includes('--latest'))
 
   if (files.length === 0 || files.some(({ name }) => !name.startsWith(`${PLUGIN}/`))) {
     throw new Error(`${from} is not the ccstatusline desktop plugin`)

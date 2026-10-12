@@ -14,6 +14,7 @@ import { reportOf } from './report'
 import { keepSnapshot, snapshotPathOf } from './snapshot'
 import { engineOf, engineSettingsPathIn, statusOf } from './status'
 import type { Status, Told } from './status'
+import { isUpdateAsked, update } from './update'
 
 /** What runs the engine unless the person names another runtime. */
 const DEFAULT_RUNTIME = 'node'
@@ -235,8 +236,8 @@ export const register: Register = (on, options) => {
       .register({
         name: 'ccstatusline-desktop',
         description:
-          'Show the status lines as text, and where they are configured; with "edit", open the configurator; with "jetbrains", install the JetBrains plugin',
-        argumentHint: '[edit|jetbrains]',
+          'Show the status lines as text, and where they are configured; with "edit", open the configurator; with "update", update the mod and the JetBrains plugin; with "jetbrains", install the JetBrains plugin',
+        argumentHint: '[edit|update|jetbrains]',
       })
       .catch(() => undefined)
 
@@ -261,6 +262,10 @@ export const register: Register = (on, options) => {
 
     if (isEditAsked(e.args)) {
       return { text: await editLayout(bound, runtime) }
+    }
+
+    if (isUpdateAsked(e.args)) {
+      return { text: await update(bound, runtime) }
     }
 
     await refresh(bound).catch(() => undefined)

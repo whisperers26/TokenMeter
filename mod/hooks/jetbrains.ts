@@ -13,21 +13,24 @@ export const isJetBrainsAsked = (args: string): boolean =>
 
 /**
  * Installs the JetBrains plugin of this mod's release in the IDEs of the
- * machine, by running the installer on the runtime the engine runs on.
+ * machine, by running the installer on the runtime the engine runs on. Given
+ * `--latest`, the installer takes the plugin of the latest release instead.
  *
  * Never rejects: an installer that could not be run, or that failed, is
  * answered in words.
  *
  * @param host the calls on Claude Code the run is made with
  * @param runtime the command the installer is run with: `node`, `bun`, or a path to one
+ * @param options what the installer is told beside: `--latest`, or nothing
  * @returns what the installer said: where it installed the plugin, or why it did not
  */
 export async function installJetBrains(
   host: Host,
   runtime: string,
+  options: readonly string[] = [],
 ): Promise<string> {
   try {
-    const ran = await host.run([runtime, pathIn(host.root, ...INSTALLER)], {
+    const ran = await host.run([runtime, pathIn(host.root, ...INSTALLER), ...options], {
       timeoutMs: INSTALL_TIMEOUT_MS,
     })
 

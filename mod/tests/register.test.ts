@@ -776,6 +776,45 @@ describe('register', () => {
     ])
   })
 
+  test('/ccstatusline-desktop update runs what the dialog chose, not the engine', async ($, on) => {
+    const { runs } = worldOf(on, { run: () => printed('Rider2026.2: installed\n') })
+
+    on('tool.call', { tool: 'AskUserQuestion' }, ($, e) => ({
+      result: {
+        questions: e.questions,
+        answers: Object.fromEntries(
+          e.questions.map(({ question }) => [question, 'The JetBrains plugin']),
+        ),
+      },
+    }))
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run({ ...COMMAND, args: ' Update ' })
+
+    const ran = runs.map(({ argv: [runtime, script = ''] }) => [
+      runtime,
+      script.replaceAll('\\', '/').split('/').slice(-2).join('/'),
+    ])
+
+    expect([ran, text]).toEqual([
+      [['node', 'scripts/install-jetbrains.mjs']],
+      'Rider2026.2: installed',
+    ])
+  })
+
+  test('/ccstatusline-desktop update runs nothing where nobody answers the dialog', async ($, on) => {
+    const { runs } = worldOf(on)
+
+    on('tool.call', { tool: 'AskUserQuestion' }, () => ({ deny: 'no one to ask' }))
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run({ ...COMMAND, args: 'update' })
+
+    expect([runs, text?.startsWith('Nothing was updated.')]).toEqual([[], true])
+  })
+
   test('draws the lines again once the engine recovers', async ($, on) => {
     let isBroken = true
 

@@ -203,6 +203,9 @@ export const register: Register = (on, options) => {
       invalidate: () => $.ui.invalidate('ui.render'),
       // As with the version below: an older Claude Code rejects
       ask: async (question, options) => $.ui.ask(question, options),
+      log: text => $.ui.log(text),
+      recall: key => $.store.get(key),
+      remember: (key, value) => $.store.set(key, value),
       sessionId: () => $.session.id(),
       cwd: () => $.session.cwd(),
       projectRoot: () => $.session.root(),

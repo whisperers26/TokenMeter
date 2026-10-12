@@ -15,7 +15,7 @@ import { reportOf } from './report'
 import { keepSnapshot, snapshotPathOf } from './snapshot'
 import { engineOf, engineSettingsPathIn, statusOf } from './status'
 import type { Status, Told } from './status'
-import { alignTerminal, editOffOf } from './terminal'
+import { alignTerminal, editOffOf, widenTerminal } from './terminal'
 import { isUninstallAsked, uninstall } from './uninstall'
 import { isUpdateAsked, update } from './update'
 
@@ -454,6 +454,9 @@ export const register: Register = (on, options) => {
       host.after(0, () => {
         void alignTerminal(host, runtime, 'once')
           .then(({ aligned }) => aligned && host.log(aligned.said))
+          // After it: an install just made sets the width itself
+          .then(() => widenTerminal(host, runtime))
+          .then(said => said !== undefined && host.log(said))
           .catch(() => undefined)
       })
     }

@@ -43,6 +43,11 @@ export type WorldOptions = {
    * left out, it finds none.
    */
   terminal?: (e: Args<'process.run'>) => Ran | Promise<Ran>
+  /**
+   * How the script's handing of the terminal's width to its ccstatusline
+   * ends; left out, there is nothing to do and it says nothing.
+   */
+  widen?: (e: Args<'process.run'>) => Ran | Promise<Ran>
   /** What the mod's own store holds at the start. */
   stored?: Readonly<Record<string, unknown>>
 }
@@ -196,6 +201,12 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
 
   on('process.run', ($, e) => {
     if (TERMINAL_SCRIPT.test(e.argv[1] ?? '')) {
+      // The look at the width is made at every first draw, and finds nothing
+      // to do unless the test says otherwise
+      if (e.argv[2] === 'widen') {
+        return options.widen?.(e) ?? printed('')
+      }
+
       terminalRuns.push(e.argv.slice(2))
 
       return options.terminal?.(e) ?? printed('{"kind":"none"}\n')

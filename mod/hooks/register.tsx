@@ -97,15 +97,8 @@ export const register: Register = (on, options) => {
   /** Whether this session has looked at the terminal's ccstatusline. */
   let isTerminalLookedAt = false
 
-  /** The band's width on each surface that draws it, in character cells. */
-  const columnsOf = new Map<RenderSurface, number>()
-
-  /** The narrowest band a surface has measured; undefined when none has. */
-  function narrowestBand() {
-    const measured = [...columnsOf.values()].filter(columns => columns > 0)
-
-    return measured.length === 0 ? undefined : Math.min(...measured)
-  }
+  /** The surfaces drawing the band. */
+  const drawing = new Set<RenderSurface>()
 
   function note(e: ToldBy) {
     told = {
@@ -141,11 +134,14 @@ export const register: Register = (on, options) => {
 
         const snapshotPath = await snapshotPathFor(host)
 
-        // A snapshot's reader lays the lines out itself, as the desktop app
-        // does: for it too the engine is given room no line reaches
+        // The desktop app lays text out in a proportional font, where a width
+        // in cells means nothing, and a snapshot's reader lays the lines out
+        // itself: for both the engine is given room no line reaches, and what
+        // shows the lines spaces the padded groups
         const columns =
-          narrowestBand() ??
-          (snapshotPath === undefined ? undefined : UNBOUNDED_COLUMNS)
+          drawing.size > 0 || snapshotPath !== undefined
+            ? UNBOUNDED_COLUMNS
+            : undefined
 
         status = await statusOf(host, { runtime, told, columns })
 
@@ -181,7 +177,7 @@ export const register: Register = (on, options) => {
    * on a surface that draws the band, or in a snapshot that is read.
    */
   async function refreshIfShown(host: Host) {
-    if (columnsOf.size > 0 || (await snapshotPathFor(host)) !== undefined) {
+    if (drawing.size > 0 || (await snapshotPathFor(host)) !== undefined) {
       await refresh(host)
     }
   }
@@ -198,7 +194,7 @@ export const register: Register = (on, options) => {
    * on no surface, may keep a snapshot of them.
    */
   function request() {
-    if (bound && (columnsOf.size > 0 || !isOnSurface)) {
+    if (bound && (drawing.size > 0 || !isOnSurface)) {
       schedule(bound)
     }
   }
@@ -221,7 +217,7 @@ export const register: Register = (on, options) => {
   function watchEffort() {
     const host = bound
 
-    if (!host || (columnsOf.size === 0 && isOnSurface)) {
+    if (!host || (drawing.size === 0 && isOnSurface)) {
       return
     }
 
@@ -363,7 +359,7 @@ export const register: Register = (on, options) => {
   })
 
   on('session.detach', ($, e, next) => {
-    columnsOf.delete(e.surface)
+    drawing.delete(e.surface)
 
     return next(e)
   })
@@ -466,18 +462,13 @@ export const register: Register = (on, options) => {
       return next(e)
     }
 
-    // The desktop app lays text out in a proportional font, where a width in
-    // cells means nothing: the engine is given room no line reaches, and the
-    // band spaces the padded groups itself
-    const columns =
-      e.surface === 'desktop' ? UNBOUNDED_COLUMNS : e.props.bodyColumns
+    const isFirstDraw = !drawing.has(e.surface)
 
-    const isResized = columnsOf.get(e.surface) !== columns
+    drawing.add(e.surface)
 
-    columnsOf.set(e.surface, columns)
-
-    // The first draw starts the first run; after that only a new width does
-    if (isResized || (status === null && running === null)) {
+    // A surface's first draw starts a run; after that a draw starts none
+    // unless there is nothing to show and no run under way
+    if (isFirstDraw || (status === null && running === null)) {
       schedule(bound)
     }
 

@@ -550,7 +550,7 @@ describe('register', () => {
     })
   })
 
-  test('a redraw at the same width runs nothing more', async ($, on) => {
+  test('a redraw runs nothing more', async ($, on) => {
     const { clock, runs } = worldOf(on)
 
     await $.session.start(START)

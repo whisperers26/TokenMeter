@@ -2,7 +2,7 @@
 
 **Your [ccstatusline](https://github.com/sirmalloc/ccstatusline) status line, in the Claude Code desktop app and in the AI Assistant chat of JetBrains IDEs too.**
 
-ccstatusline desktop is a fork of ccstatusline. A terminal session of Claude Code shows a status line by running a `statusLine` command; the desktop app runs no such command, and neither does a JetBrains IDE that runs Claude in its AI chat, so the line disappears in both. This fork adds ccstatusline desktop: a Claude Code mod (a plugin) that draws the same lines in the band above the desktop app's prompt, and a [JetBrains plugin](#jetbrains-ides), installed with one command, that draws them above the chat's input.
+ccstatusline desktop is a fork of ccstatusline. A terminal session of Claude Code shows a status line by running a `statusLine` command; the desktop app runs no such command, and neither does a JetBrains IDE that runs Claude in its AI chat, so the line disappears in both. This fork adds two things: a Claude Code mod (a plugin) that draws the same lines in the band above the desktop app's prompt, and a [JetBrains plugin](#jetbrains-ides), installed with one command, that draws them above the chat's input.
 
 In the desktop app:
 
@@ -32,6 +32,24 @@ claude plugin install ccstatusline-desktop --marketplace whisperers26/ccstatusli
 or, inside a terminal session of Claude Code, `/plugin install ccstatusline-desktop --marketplace whisperers26/ccstatusline-desktop`. The desktop app's own prompt does not take `/plugin`; a plugin installed from a shell at the default user scope loads there too. Start a new desktop session and the band appears above the prompt.
 
 That installs the latest release, not the tip of `main`.
+
+### Coming from Token Meter
+
+Up to 0.1.6 the mod and its JetBrains plugin were called Token Meter, and the command was `/token-meter`. The new name is a new plugin to Claude Code, so remove the old one and install this one:
+
+```bash
+claude plugin uninstall token-meter@token-meter
+```
+
+```bash
+claude plugin marketplace remove token-meter
+```
+
+```bash
+claude plugin install ccstatusline-desktop --marketplace whisperers26/ccstatusline-desktop
+```
+
+Options you had set (`refreshSeconds`, `runtime`) need setting again. If you use a JetBrains IDE, run `claude -p "/ccstatusline-desktop jetbrains"` afterwards: it removes the Token Meter plugin from each IDE as it installs this one. The old snapshots folder, `~/.cache/token-meter`, is no longer used and can be deleted.
 
 If you have never used ccstatusline, the band shows its default layout. To build your own, open the configuration TUI in a terminal with `npx -y ccstatusline@latest`; [docs/USAGE.md](docs/USAGE.md) covers every widget and option.
 
@@ -75,9 +93,9 @@ Session: 7.0% | Reset: 3hr 29m | Weekly: 10.0% | Weekly Reset: 2d 13hr 39m      
 ╰──────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-Each chat shows the lines of its own Claude session, refreshed as the mod refreshes them. A chat narrower than a line wraps it, a link opens on a click, and a chat with another agent shows no band. Claude counts whether you added it as an ACP agent yourself or use the Claude agent AI Assistant comes with (that one from 0.1.5 of the mod, as it runs an older Claude Code of its own); Junie and other agents are not Claude Code, and the mod does not run in them.
+Each chat shows the lines of its own Claude session, refreshed as the mod refreshes them. A chat narrower than a line wraps it, a link opens on a click, and a chat with another agent shows no band. Claude counts whether you added it as an ACP agent yourself or use the Claude agent AI Assistant comes with (that one runs an older Claude Code of its own); Junie and other agents are not Claude Code, and the mod does not run in them.
 
-You need the mod installed in Claude Code as [above](#install), at 0.1.4 or later, and an IDE of the 2026.1 line or later with JetBrains AI Assistant and Claude as an agent in it. Android Studio is such an IDE (from 0.1.6 of the mod), with JetBrains AI Assistant installed from its plugins page. Then, from any shell:
+You need the mod installed in Claude Code as [above](#install) and an IDE of the 2026.1 line or later with JetBrains AI Assistant and Claude as an agent in it. Android Studio is such an IDE, with JetBrains AI Assistant installed from its plugins page. Then, from any shell:
 
 ```bash
 claude -p "/ccstatusline-desktop jetbrains"

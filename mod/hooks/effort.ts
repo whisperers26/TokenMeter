@@ -44,3 +44,53 @@ export function effortLevelOf(settings: Settings): string | undefined {
 
   return LEVELS.find(level => level === effortLevel)
 }
+
+/** A model's name with its context and release suffixes off, in lower case. */
+const canonicalOf = (model: string): string =>
+  model
+    .trim()
+    .toLowerCase()
+    .replace(/\[[^\]]*\]$/, '')
+    .replace(/-\d{8}$/, '')
+
+/** The level saved for `model` in `modelSettings`, by the name it is saved under. */
+function savedEffortOf(settings: Settings, model: string): string | undefined {
+  const { modelSettings } = settings
+
+  if (typeof modelSettings !== 'object' || modelSettings === null) {
+    return undefined
+  }
+
+  const wanted = canonicalOf(model)
+
+  const entry = Object.entries(modelSettings).find(
+    ([name]) => canonicalOf(name) === wanted,
+  )?.[1]
+
+  return typeof entry === 'object' && entry !== null
+    ? effortLevelOf(entry as Settings)
+    : undefined
+}
+
+/**
+ * The effort a session has, as far as Claude Code's settings say it: the level
+ * a host put in the flag layer, else the one saved for the session's model
+ * (where `/effort` and the effort picker of a terminal write it), else the
+ * top-level one.
+ *
+ * @param settings Claude Code's settings, merged over every source
+ * @param flag the flag layer of them, where a host's pick is
+ * @param model the session's model, as `$.session.model()` names it
+ * @returns the level; undefined where the settings name none
+ */
+export function effortOf(
+  settings: Settings,
+  flag: Settings,
+  model: string,
+): string | undefined {
+  return (
+    effortLevelOf(flag) ??
+    savedEffortOf(settings, model) ??
+    effortLevelOf(settings)
+  )
+}

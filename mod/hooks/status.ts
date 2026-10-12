@@ -1,6 +1,6 @@
 import { parseAnsi } from './ansi'
 import type { Line } from './ansi'
-import { effortLevelOf } from './effort'
+import { effortOf } from './effort'
 import type { Host } from './host'
 import { pathIn } from './path-in'
 import { payloadOf } from './payload'
@@ -75,7 +75,7 @@ async function factsOf(
   told: Told,
   home: string | undefined,
 ): Promise<SessionFacts> {
-  const [sessionId, cwd, root, model, version, usage, now, settings] =
+  const [sessionId, cwd, root, model, version, usage, now, settings, flag] =
     await Promise.all([
       host.sessionId(),
       host.cwd(),
@@ -89,6 +89,7 @@ async function factsOf(
       host.usage(),
       host.now(),
       host.settings(),
+      host.settings('flag').catch(() => ({})),
     ])
 
   const transcriptPath = await transcriptOf(host, told, home, root, sessionId)
@@ -96,7 +97,7 @@ async function factsOf(
 
   // A turn's own word is the session's effort as it ran; before one, or after
   // /effort auto, the settings' is the nearest there is
-  const effort = told.effort ?? effortLevelOf(settings)
+  const effort = told.effort ?? effortOf(settings, flag, model)
 
   return {
     sessionId,

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { effortLevelOf, effortSaidBy } from '../hooks/effort'
+import { effortLevelOf, effortOf, effortSaidBy } from '../hooks/effort'
 
 describe('effort', () => {
   test('reads the level /effort set the session to', () => {
@@ -40,5 +40,48 @@ describe('effort', () => {
         {},
       ].map(effortLevelOf),
     ).toEqual(['low', 'xhigh', undefined, undefined, undefined])
+  })
+
+  describe('the effort a session has', () => {
+    const SAVED = {
+      effortLevel: 'high',
+      modelSettings: {
+        'claude-opus-5-5': { effortLevel: 'medium' },
+        'claude-sonnet-5-5': { effortLevel: 'low' },
+      },
+    }
+
+    test('is the level saved for the model, before the top-level one', () => {
+      expect(effortOf(SAVED, {}, 'claude-opus-5-5')).toBe('medium')
+      expect(effortOf(SAVED, {}, 'claude-sonnet-5-5')).toBe('low')
+    })
+
+    test('falls back to the top-level level for a model with none saved', () => {
+      expect(effortOf(SAVED, {}, 'claude-haiku-5-5')).toBe('high')
+    })
+
+    test('finds a model by the name it is saved under, whatever its spelling', () => {
+      expect(
+        [
+          'claude-opus-5-5[1m]',
+          'claude-opus-5-5-20260101',
+          'CLAUDE-OPUS-5-5',
+        ].map(model => effortOf(SAVED, {}, model)),
+      ).toEqual(['medium', 'medium', 'medium'])
+    })
+
+    test('is the level a host put in the flag layer, before any saved one', () => {
+      expect(effortOf(SAVED, { effortLevel: 'xhigh' }, 'claude-opus-5-5')).toBe('xhigh')
+    })
+
+    test('ignores a saved level the status line has no name for', () => {
+      expect(
+        effortOf(
+          { modelSettings: { 'claude-opus-5-5': { effortLevel: 'turbo' } } },
+          {},
+          'claude-opus-5-5',
+        ),
+      ).toBeUndefined()
+    })
   })
 })

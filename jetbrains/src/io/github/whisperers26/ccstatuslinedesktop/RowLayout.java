@@ -10,8 +10,8 @@ import java.util.function.ToIntFunction;
  * Where the spans of one status line go in a band of a given width.
  *
  * A row that fits is one line, its groups pushed apart to the band's edges as
- * the desktop app draws them. A chat is often narrower than a status line, so
- * a row that does not fit wraps between spans instead of being cut.
+ * the desktop app draws them. A row that does not fit is cut at the band's
+ * edge and ends in an ellipsis, as a terminal too narrow for it shows it.
  */
 public final class RowLayout {
     /** A span in its place: its left edge, the line it is on (the first is 0), and its width. */
@@ -21,6 +21,9 @@ public final class RowLayout {
     /** A row laid out: its spans in their places, and how many lines they take. */
     public record Laid(List<Placed> placed, int lines) {
     }
+
+    /** What stands where a row was cut, as the engine marks a line it cut. */
+    private static final String ELLIPSIS = "...";
 
     private RowLayout() {
     }
@@ -48,9 +51,9 @@ public final class RowLayout {
             return new Laid(List.of(), 0);
         }
 
-        return total + gap * (filled - 1) <= width
+        return total <= width
             ? spread(groups, widths, width - total, measure)
-            : wrapped(groups, width, gap, measure);
+            : cut(groups, width, measure);
     }
 
     /** One line, the room left over shared out between the groups: an empty group still holds its side. */
@@ -74,39 +77,62 @@ public final class RowLayout {
         return new Laid(List.copyOf(placed), 1);
     }
 
-    /** Lines filled from the left: a span that does not fit starts the next one. */
-    private static Laid wrapped(List<List<Span>> groups, int width, int gap, ToIntFunction<Span> measure) {
+    /**
+     * One line cut at the band's edge as the engine cuts one at a terminal's: the groups
+     * one after another with nothing between them, and an ellipsis where the row stops.
+     */
+    private static Laid cut(List<List<Span>> groups, int width, ToIntFunction<Span> measure) {
         List<Placed> placed = new ArrayList<>();
         int x = 0;
-        int line = 0;
 
         for (List<Span> group : groups) {
-            if (group.isEmpty()) {
-                continue;
-            }
-
-            if (x > 0) {
-                if (x + gap + measure.applyAsInt(group.get(0)) > width) {
-                    line += 1;
-                    x = 0;
-                } else {
-                    x += gap;
-                }
-            }
-
             for (Span span : group) {
                 int spanWidth = measure.applyAsInt(span);
 
-                if (x > 0 && x + spanWidth > width) {
-                    line += 1;
-                    x = 0;
+                if (x + spanWidth > width - measure.applyAsInt(withText(span, ELLIPSIS))) {
+                    Span last = withText(span, cutText(span, width - x, measure));
+
+                    if (!last.text().isEmpty()) {
+                        placed.add(new Placed(last, x, 0, measure.applyAsInt(last)));
+                    }
+
+                    return new Laid(List.copyOf(placed), 1);
                 }
 
-                placed.add(new Placed(span, x, line, spanWidth));
+                placed.add(new Placed(span, x, 0, spanWidth));
                 x += spanWidth;
             }
         }
 
-        return new Laid(List.copyOf(placed), line + 1);
+        return new Laid(List.copyOf(placed), 1);
+    }
+
+    /**
+     * The most of a span's text that fits in `room` with the ellipsis after it; in less
+     * room than the ellipsis takes, the dots of it that fit.
+     */
+    private static String cutText(Span span, int room, ToIntFunction<Span> measure) {
+        String text = span.text();
+
+        for (int end = text.length(); end >= 0; end = end == 0 ? -1 : text.offsetByCodePoints(end, -1)) {
+            String kept = text.substring(0, end) + ELLIPSIS;
+
+            if (measure.applyAsInt(withText(span, kept)) <= room) {
+                return kept;
+            }
+        }
+
+        for (int dots = ELLIPSIS.length() - 1; dots > 0; dots -= 1) {
+            if (measure.applyAsInt(withText(span, ELLIPSIS.substring(0, dots))) <= room) {
+                return ELLIPSIS.substring(0, dots);
+            }
+        }
+
+        return "";
+    }
+
+    /** A span of other text in the same style. */
+    private static Span withText(Span span, String text) {
+        return new Span(text, span.color(), span.background(), span.traits(), span.href());
     }
 }

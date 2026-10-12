@@ -87,14 +87,11 @@ public final class BandViewTest {
         Check.equal(INSETS.top + 2 * view.lineHeight() + INSETS.bottom, view.getPreferredSize().height);
     }
 
-    public static void grows_taller_where_a_narrow_band_wraps_a_row() {
+    public static void stays_a_line_tall_for_a_row_too_wide_for_it() {
         Row row = row(span("Model: Opus 5.5"), span(" | "), span("Thinking: high"), span(" | "), span("Ctx: 183.4k"));
+        BandView view = showing(150, row);
 
-        Check.equal(
-            List.of(true, true),
-            List.of(
-                showing(2000, row).getPreferredSize().height == INSETS.top + showing(2000, row).lineHeight() + INSETS.bottom,
-                showing(150, row).getPreferredSize().height > showing(2000, row).getPreferredSize().height));
+        Check.equal(INSETS.top + view.lineHeight() + INSETS.bottom, view.getPreferredSize().height);
     }
 
     public static void asks_for_no_width_of_its_own() {
@@ -204,16 +201,15 @@ public final class BandViewTest {
 
         BandView view = new BandView(look, address -> { });
 
-        view.show(List.of(row(span("Model: Opus 5.5"), span(" | "), span("Thinking: high"))), false);
-        view.setSize(400, 100);
+        view.show(List.of(row(span("MMMM"), new Span("PR #7", null, null, Set.of(), ADDRESS))), false);
+        view.setSize(2000, 100);
 
-        boolean fitsOneLine = view.getPreferredSize().height == INSETS.top + view.lineHeight() + INSETS.bottom;
+        // Just past the four letters in the small font, and still on them in the large one
+        int x = INSETS.left + view.getFontMetrics(look.font()).stringWidth("MMMM") + 2;
+        Optional<String> inTheSmallFont = view.hrefAt(x, INSETS.top + 2);
 
         size[0] = 40;
 
-        boolean wrapsInTheLargerFont =
-            view.getPreferredSize().height >= INSETS.top + 2 * view.lineHeight() + INSETS.bottom;
-
-        Check.equal(List.of(true, true), List.of(fitsOneLine, wrapsInTheLargerFont));
+        Check.equal(List.of(Optional.of(ADDRESS), Optional.empty()), List.of(inTheSmallFont, view.hrefAt(x, INSETS.top + 2)));
     }
 }

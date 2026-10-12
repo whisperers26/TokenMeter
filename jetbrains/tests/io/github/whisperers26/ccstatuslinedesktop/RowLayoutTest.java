@@ -67,29 +67,48 @@ public final class RowLayoutTest {
             places(lay(row(group(), group("right")), 100)));
     }
 
-    public static void a_row_wider_than_the_band_wraps_between_spans() {
+    public static void a_row_wider_than_the_band_is_cut_at_its_edge_with_an_ellipsis() {
         Laid laid = lay(row(group("aaaa", "bbb", "cccc")), 80);
 
-        Check.equal(List.of("aaaa@0,0", "bbb@40,0", "cccc@0,1"), places(laid));
-        Check.equal(2, laid.lines());
+        Check.equal(List.of("aaaa@0,0", "b...@40,0"), places(laid));
+        Check.equal(1, laid.lines());
     }
 
-    public static void in_a_wrapped_row_a_group_follows_the_one_before_after_a_gap() {
+    public static void a_row_exactly_as_wide_as_the_band_is_not_cut() {
         Check.equal(
-            List.of("aaaa@0,0", "bbbb@0,1", "cc@50,1"),
-            places(lay(row(group("aaaa", "bbbb"), group("cc")), 70)));
+            List.of("aaaa@0,0", "bbbb@40,0"),
+            places(lay(row(group("aaaa"), group("bbbb")), 80)));
     }
 
-    public static void in_a_wrapped_row_a_group_with_no_room_after_its_gap_starts_a_line() {
+    public static void in_a_cut_row_a_group_follows_the_one_before_with_no_room_between() {
         Check.equal(
-            List.of("aaaa@0,0", "bb@0,1"),
-            places(lay(row(group("aaaa"), group("bb")), 50)));
+            List.of("aa@0,0", "b...@20,0"),
+            places(lay(row(group("aa"), group("bbbbb")), 60)));
     }
 
-    public static void a_span_wider_than_the_band_keeps_a_line_to_itself() {
+    public static void a_span_with_no_room_for_a_character_of_its_own_leaves_the_ellipsis() {
         Check.equal(
-            List.of("a@0,0", "bbbbbbbbbb@0,1", "c@0,2"),
-            places(lay(row(group("a", "bbbbbbbbbb", "c")), 50)));
+            List.of("aaaa@0,0", "...@40,0"),
+            places(lay(row(group("aaaa", "bbbb")), 70)));
+    }
+
+    public static void a_band_narrower_than_the_ellipsis_shows_the_dots_that_fit() {
+        Check.equal(List.of("..@0,0"), places(lay(row(group("aaaa")), 25)));
+    }
+
+    public static void a_cut_never_splits_a_character() {
+        Check.equal(
+            List.of("😀...@0,0"),
+            places(lay(row(group("😀😀😀😀")), 60)));
+    }
+
+    public static void a_cut_span_keeps_its_style() {
+        Span link = new Span("PR #7 open", 0xff0000, null, Set.of(), "https://example.com/pull/7");
+        Laid laid = RowLayout.lay(new Row(List.of(List.of(link))), 80, GAP, span -> span.text().length() * 10);
+
+        Check.equal(
+            List.of(new Span("PR #7...", 0xff0000, null, Set.of(), "https://example.com/pull/7")),
+            laid.placed().stream().map(Placed::span).toList());
     }
 
     public static void each_span_is_placed_with_its_own_width() {

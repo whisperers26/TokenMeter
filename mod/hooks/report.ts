@@ -17,6 +17,14 @@ function commandOf([runtime = '', ...rest]: readonly string[]): string {
 }
 
 /**
+ * Text as it is to be read to the letter. The report is drawn as markdown, and
+ * outside a code span a Windows path loses each backslash before a dot there.
+ */
+function verbatim(text: string): string {
+  return `\`${text}\``
+}
+
+/**
  * What `/ccstatusline-desktop` answers: the status lines as plain text (or why there
  * are none), then where their layout is kept and how to change it.
  *
@@ -31,7 +39,7 @@ export function reportOf(
   status: Status,
   { engine, settingsPath }: ReportDetails,
 ): string {
-  const command = commandOf(engine)
+  const command = verbatim(commandOf(engine))
 
   if ('failure' in status) {
     return [
@@ -55,7 +63,7 @@ export function reportOf(
   return [
     ...shown,
     '',
-    `Layout, widgets and colours: ${settingsPath}`,
+    `Layout, widgets and colours: ${verbatim(settingsPath)}`,
     `To change them, run this in a terminal: ${command}`,
   ].join('\n')
 }

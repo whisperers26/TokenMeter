@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 import { deflateRawSync } from 'node:zlib'
 
-import { filesIn, ideFoldersAmong, installIn, pluginsRootOf, zipUrlOf } from './install-jetbrains.mjs'
+import { filesIn, ideFoldersAmong, installIn, pluginsRootsOf, zipUrlOf } from './install-jetbrains.mjs'
 
 /** A zip of `files`, each deflated unless it says it is stored. */
 function zipOf(files) {
@@ -59,7 +59,7 @@ test('a release keeps the zip under the tag of its version', () => {
   )
 })
 
-test('only IDEs of 2026.2 or later are taken, and nothing that is not an IDE', () => {
+test('only IDEs of 2026.1 or later are taken, Android Studio among them, and nothing that is not an IDE', () => {
   assert.deepEqual(
     ideFoldersAmong([
       'Rider2026.2',
@@ -67,26 +67,34 @@ test('only IDEs of 2026.2 or later are taken, and nothing that is not an IDE', (
       'Rider2025.3',
       'PyCharm2026.3',
       'IntelliJIdea2027.1',
+      'AndroidStudio2026.1.4',
+      'AndroidStudio2025.3.2',
       'Rider',
+      'Chrome',
       'acp-agents',
       'consentOptions',
       'PermanentUserId',
     ]),
-    ['IntelliJIdea2027.1', 'PyCharm2026.3', 'Rider2026.2'],
+    ['AndroidStudio2026.1.4', 'IntelliJIdea2027.1', 'PyCharm2026.3', 'Rider2026.1', 'Rider2026.2'],
   )
 })
 
-test('Windows and macOS keep plugins in a folder of the IDE’s own, Linux in the IDE’s folder itself', () => {
-  const windows = pluginsRootOf('win32', { APPDATA: 'C:\\Users\\me\\AppData\\Roaming' }, 'C:\\Users\\me')
-  const mac = pluginsRootOf('darwin', {}, '/Users/me')
-  const linux = pluginsRootOf('linux', {}, '/home/me')
+test('IDEs are looked for under JetBrains and under Google, where Android Studio keeps its own', () => {
+  const appData = 'C:\\Users\\me\\AppData\\Roaming'
+  const under = (...folders) => ['JetBrains', 'Google'].map(vendor => join(...folders, vendor))
 
-  assert.equal(windows.root, join('C:\\Users\\me\\AppData\\Roaming', 'JetBrains'))
-  assert.equal(windows.pluginsIn('x'), join('x', 'plugins'))
-  assert.equal(mac.root, join('/Users/me', 'Library', 'Application Support', 'JetBrains'))
-  assert.equal(mac.pluginsIn('x'), join('x', 'plugins'))
-  assert.equal(linux.root, join('/home/me', '.local', 'share', 'JetBrains'))
-  assert.equal(linux.pluginsIn('x'), 'x')
+  assert.deepEqual(pluginsRootsOf('win32', { APPDATA: appData }, 'C:\\Users\\me').roots, under(appData))
+  assert.deepEqual(
+    pluginsRootsOf('darwin', {}, '/Users/me').roots,
+    under('/Users/me', 'Library', 'Application Support'),
+  )
+  assert.deepEqual(pluginsRootsOf('linux', {}, '/home/me').roots, under('/home/me', '.local', 'share'))
+})
+
+test('Windows and macOS keep plugins in a folder of the IDE’s own, Linux in the IDE’s folder itself', () => {
+  assert.equal(pluginsRootsOf('win32', {}, 'C:\\Users\\me').pluginsIn('x'), join('x', 'plugins'))
+  assert.equal(pluginsRootsOf('darwin', {}, '/Users/me').pluginsIn('x'), join('x', 'plugins'))
+  assert.equal(pluginsRootsOf('linux', {}, '/home/me').pluginsIn('x'), 'x')
 })
 
 test('a zip is read whether its files are deflated or stored, its folders passed over', () => {

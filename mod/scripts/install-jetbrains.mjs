@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Installs the Token Meter plugin in the JetBrains IDEs of this machine: the
-// zip of this mod's own release, unpacked into each IDE's plugins folder.
+// Installs the Token Meter plugin in the JetBrains IDEs of this machine,
+// Android Studio among them: the zip of this mod's own release, unpacked into
+// each IDE's plugins folder.
 //
 //   node mod/scripts/install-jetbrains.mjs              the zip of this version's release
 //   node mod/scripts/install-jetbrains.mjs --zip <file> a zip already on disk
@@ -22,13 +23,23 @@ const RELEASES = 'https://github.com/whisperers26/ccstatusline-desktop/releases'
 const AI_ASSISTANT = 'ml-llm'
 
 /** The first line of IDEs whose AI Assistant has the slot the band is drawn in. */
-const SINCE = { year: 2026, minor: 2 }
+const SINCE = { year: 2026, minor: 1 }
 
 /** How many redirects a download follows: a release's file is served from another host. */
 const MAX_REDIRECTS = 5
 
-/** An IDE's own folder under JetBrains': the product, then its line (`Rider2026.2`). */
-const IDE_FOLDER = /^[A-Za-z]+(\d{4})\.(\d+)$/
+/**
+ * Whose name an IDE keeps its folders under: its vendor's. Android Studio is
+ * a JetBrains IDE that Google ships, and keeps its own under Google's.
+ */
+const VENDORS = ['JetBrains', 'Google']
+
+/**
+ * An IDE's own folder under its vendor's: the product, then its line
+ * (`Rider2026.2`), which Android Studio follows with a release of its own
+ * (`AndroidStudio2026.1.4`).
+ */
+const IDE_FOLDER = /^[A-Za-z]+(\d{4})\.(\d+)(?:\.\d+)?$/
 
 const END_OF_DIRECTORY = 0x06054b50
 const DIRECTORY_ENTRY = 0x02014b50
@@ -46,31 +57,36 @@ export const zipUrlOf = version =>
  * @param platform `process.platform`
  * @param env the environment, for `APPDATA` on Windows
  * @param home the home directory
- * @returns the folder that holds them, and how a plugins folder is spelled under one of its own
+ * @returns the folders that hold them, one a vendor, and how a plugins folder is spelled under one of an IDE's own
  */
-export function pluginsRootOf(platform, env, home) {
+export function pluginsRootsOf(platform, env, home) {
   if (platform === 'win32') {
+    const data = env.APPDATA ?? join(home, 'AppData', 'Roaming')
+
     return {
-      root: join(env.APPDATA ?? join(home, 'AppData', 'Roaming'), 'JetBrains'),
+      roots: VENDORS.map(vendor => join(data, vendor)),
       pluginsIn: ide => join(ide, 'plugins'),
     }
   }
 
   if (platform === 'darwin') {
     return {
-      root: join(home, 'Library', 'Application Support', 'JetBrains'),
+      roots: VENDORS.map(vendor => join(home, 'Library', 'Application Support', vendor)),
       pluginsIn: ide => join(ide, 'plugins'),
     }
   }
 
-  return { root: join(home, '.local', 'share', 'JetBrains'), pluginsIn: ide => ide }
+  return {
+    roots: VENDORS.map(vendor => join(home, '.local', 'share', vendor)),
+    pluginsIn: ide => ide,
+  }
 }
 
 /**
- * The IDEs among the folders JetBrains keeps, of a line the plugin runs in.
+ * The IDEs among the folders a vendor keeps, of a line the plugin runs in.
  *
- * @param names the names of the folders under JetBrains' own
- * @returns those that are an IDE's, of 2026.2 or later, in the order of their names
+ * @param names the names of the folders under the vendor's own
+ * @returns those that are an IDE's, of 2026.1 or later, in the order of their names
  */
 export function ideFoldersAmong(names) {
   return names
@@ -230,12 +246,15 @@ async function main(args) {
     throw new Error('--zip needs a file')
   }
 
-  const { root, pluginsIn } = pluginsRootOf(process.platform, process.env, homedir())
-  const ides = existsSync(root) ? ideFoldersAmong(readdirSync(root)) : []
+  const { roots, pluginsIn } = pluginsRootsOf(process.platform, process.env, homedir())
+
+  const ides = roots
+    .filter(root => existsSync(root))
+    .flatMap(root => ideFoldersAmong(readdirSync(root)).map(name => ({ name, folder: join(root, name) })))
 
   if (ides.length === 0) {
     throw new Error(
-      `no JetBrains IDE of ${SINCE.year}.${SINCE.minor} or later was found in ${root}.\n` +
+      `no JetBrains IDE of ${SINCE.year}.${SINCE.minor} or later was found in ${roots.join(' or ')}.\n` +
         `For an IDE that keeps its plugins elsewhere, download the zip from ${RELEASES} and install it by hand:` +
         ' Settings | Plugins | gear | Install Plugin from Disk.',
     )
@@ -252,8 +271,8 @@ async function main(args) {
 
   let installed = 0
 
-  for (const ide of ides) {
-    const plugins = pluginsIn(join(root, ide))
+  for (const { name: ide, folder } of ides) {
+    const plugins = pluginsIn(folder)
 
     try {
       installIn(files, plugins)

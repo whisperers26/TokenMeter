@@ -8,7 +8,7 @@ import type {
 
 import { bandOf } from './band'
 import { editLayout, isEditAsked } from './edit'
-import { effortSaidBy } from './effort'
+import { effortLevelOf, effortSaidBy } from './effort'
 import type { Host } from './host'
 import { installJetBrains, isJetBrainsAsked } from './jetbrains'
 import { reportOf } from './report'
@@ -27,6 +27,12 @@ const DEFAULT_REFRESH_SECONDS = 30
 
 /** A width, in cells, wider than any status line. */
 const UNBOUNDED_COLUMNS = 1000
+
+/**
+ * How often Claude Code's settings are looked at for a change of effort, in
+ * milliseconds: a read in this process, and no run of the engine.
+ */
+const SETTINGS_WATCH_MS = 2000
 
 /** The shortest period the timer takes: each tick starts a process. */
 const MIN_REFRESH_SECONDS = 5
@@ -79,9 +85,13 @@ export const register: Register = (on, options) => {
   let status: Status | null = null
   let queued: Timer | null = null
   let ticking: Timer | null = null
+  let watching: Timer | null = null
   let running: Promise<void> | null = null
   let isStale = false
   let told: Told = {}
+
+  /** The effort the settings named when last looked at. */
+  let settingsEffort: string | undefined
 
   // A terminal that runs a status line of its own already shows these lines
   // under the prompt; until the settings say it runs none, it is left alone
@@ -222,6 +232,32 @@ export const register: Register = (on, options) => {
     }
   }
 
+  /**
+   * Looks at the effort the settings name, and asks for fresh lines when it is
+   * not the one last seen: a host that sets the effort says so nowhere else.
+   * An in-process read, not a run of the engine.
+   */
+  function watchEffort() {
+    const host = bound
+
+    if (!host || (columnsOf.size === 0 && isOnSurface)) {
+      return
+    }
+
+    void host
+      .settings()
+      .then(settings => {
+        const level = effortLevelOf(settings)
+
+        if (level !== settingsEffort) {
+          settingsEffort = level
+          told = { ...told, effort: level }
+          request()
+        }
+      })
+      .catch(() => undefined)
+  }
+
   on('session.start', async ($, e, next) => {
     bound = {
       root: $.plugin.root,
@@ -254,13 +290,16 @@ export const register: Register = (on, options) => {
 
     isOnSurface ||= e.surface !== null
 
-    isTerminalFree = await $.settings.read().then(
-      settings => !hasOwnStatusLine(settings),
-      () => false,
-    )
+    const settings = await $.settings.read().catch(() => undefined)
+
+    isTerminalFree = settings !== undefined && !hasOwnStatusLine(settings)
+    settingsEffort = settings && effortLevelOf(settings)
 
     ticking?.cancel()
     ticking = refreshMs === undefined ? null : bound.every(refreshMs, request)
+
+    watching?.cancel()
+    watching = bound.every(SETTINGS_WATCH_MS, watchEffort)
 
     // The band does not depend on the command: a name already taken costs
     // the command alone

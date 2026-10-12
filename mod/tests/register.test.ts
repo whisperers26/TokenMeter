@@ -256,6 +256,49 @@ describe('register', () => {
     expect(stdinOf(runs, 0)).toMatchObject({ effort: { level: 'xhigh' } })
   })
 
+  test('passes on the effort of the settings until a turn says its own', async ($, on) => {
+    const { clock, runs } = worldOf(on, { settings: { effortLevel: 'medium' } })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.classic.Stop({ stop_hook_active: false, effort: { level: 'xhigh' } })
+    await $.turn.complete(TURN)
+    await clock.settle()
+
+    expect(runs).toHaveLength(2)
+    expect(stdinOf(runs, 0)).toMatchObject({ effort: { level: 'medium' } })
+    expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'xhigh' } })
+  })
+
+  test('runs the lines again with the new level when the settings change the effort', async ($, on) => {
+    const settings: Record<string, unknown> = { effortLevel: 'high' }
+    const { clock, runs } = worldOf(on, { settings })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.classic.Stop({ stop_hook_active: false, effort: { level: 'high' } })
+
+    settings.effortLevel = 'low'
+    await clock.advance(2_000)
+    await clock.settle()
+
+    expect(runs).toHaveLength(2)
+    expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'low' } })
+  })
+
+  test('a settings effort that did not change runs nothing', async ($, on) => {
+    const { clock, runs } = worldOf(on, { settings: { effortLevel: 'high' } })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await clock.advance(10_000)
+
+    expect(runs).toHaveLength(1)
+  })
+
   test("finds the transcript by the session's id when no event named it", async ($, on) => {
     const { clock, runs } = worldOf(on, { existing: [TRANSCRIPT] })
 

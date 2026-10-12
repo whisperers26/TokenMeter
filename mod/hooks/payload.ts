@@ -9,7 +9,8 @@ export type SessionFacts = {
   cwd: string
   root: string
   model: string
-  version: string
+  /** Claude Code's version; absent on one too old to say it. */
+  version?: string
   now: number
   usage: SessionUsage
   transcriptPath?: string
@@ -28,7 +29,7 @@ export type StatusPayload = {
   cwd: string
   model: { id: string; display_name: string }
   workspace: { current_dir: string; project_dir: string }
-  version: string
+  version?: string
   output_style?: { name: string }
   effort?: { level: string }
   cost: { total_cost_usd?: number; total_duration_ms: number }
@@ -143,7 +144,7 @@ export function payloadOf(facts: SessionFacts): StatusPayload {
     cwd: facts.cwd,
     model: { id: facts.model, display_name: displayNameOf(facts.model) },
     workspace: { current_dir: facts.cwd, project_dir: facts.root },
-    version: facts.version,
+    ...(facts.version !== undefined && { version: facts.version }),
     ...(facts.outputStyle !== undefined && {
       output_style: { name: facts.outputStyle },
     }),

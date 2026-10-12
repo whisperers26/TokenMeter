@@ -203,7 +203,8 @@ export const register: Register = (on, options) => {
       cwd: () => $.session.cwd(),
       projectRoot: () => $.session.root(),
       model: () => $.session.model(),
-      version: () => $.session.version(),
+      // An older Claude Code has no such call: asked there, it rejects
+      version: async () => $.session.version(),
       usage: () => $.session.usage(),
       surfaces: () => $.session.surfaces(),
       settings: () => $.settings.read(),

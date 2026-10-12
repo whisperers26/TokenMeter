@@ -675,6 +675,21 @@ describe('register', () => {
     expect(text).toContain('/home/me/.config/ccstatusline/settings.json')
   })
 
+  test('a Claude Code too old to say its version still gets its lines, the version left out', async ($, on) => {
+    const { runs } = worldOf(on, { hasNoVersion: true })
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run(COMMAND)
+    const payload = stdinOf(runs) as Record<string, unknown>
+
+    expect(['version' in payload, payload.session_id, text?.split('\n')[0]]).toEqual([
+      false,
+      'session-1',
+      'Model: Opus 5.5 | Ctx: 183.4k',
+    ])
+  })
+
   test('/token-meter jetbrains runs the installer, not the engine, and says what it said', async ($, on) => {
     const { runs } = worldOf(on, {
       run: () => printed('Rider2026.2: installed\n'),

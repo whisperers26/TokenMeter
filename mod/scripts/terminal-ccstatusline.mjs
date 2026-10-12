@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Looks at the ccstatusline a terminal's `statusLine` runs, and changes it:
-// to another version, or out of the machine.
+// to another version, or out of the machine. Where a terminal runs no status
+// line, puts ccstatusline there.
 //
 //   node mod/scripts/terminal-ccstatusline.mjs detect            what runs, and its version, as JSON
+//   node mod/scripts/terminal-ccstatusline.mjs install 2.2.32    put that version where no status line runs
 //   node mod/scripts/terminal-ccstatusline.mjs upgrade 2.2.32    make it that version
 //   node mod/scripts/terminal-ccstatusline.mjs uninstall         take it out
 //
@@ -11,9 +13,9 @@
 // ~/.config/ccstatusline/settings.json, which no command here touches.
 
 import { spawnSync } from 'node:child_process'
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const PACKAGE = 'ccstatusline'
@@ -29,6 +31,12 @@ const HOOK_COMMAND = /ccstatusline.* --hook(?:\s|$)/
 
 /** A release's version, and nothing a shell would read as more. */
 const VERSION = /^\d+\.\d+\.\d+$/
+
+/**
+ * The status line ccstatusline's own installer writes for a global install,
+ * on a Claude Code that refreshes one on a timer: any that loads a mod.
+ */
+const STATUS_LINE = { type: 'command', command: PACKAGE, padding: 0, refreshInterval: 10 }
 
 /** How long a package manager may take over one command. */
 const STEP_TIMEOUT_MS = 90_000
@@ -359,6 +367,60 @@ export function upgrade(world, version) {
 }
 
 /**
+ * Puts ccstatusline in a terminal that runs no status line: installs it
+ * globally at `version`, unless a global install is already there, and has
+ * Claude Code's settings run it as ccstatusline's own installer would.
+ *
+ * A status line that already runs ccstatusline is made of `version` instead,
+ * as `upgrade` does: one whose package was removed is installed again.
+ *
+ * @returns what was done, one item a line
+ * @throws where the status line runs another command, the settings do not
+ *         parse, or a step failed
+ */
+export function install(world, version) {
+  if (!VERSION.test(version ?? '')) {
+    throw new Error(`"${version}" is not a version`)
+  }
+
+  const settings = settingsOf(world)
+  const command = commandOf(settings)
+
+  if (command !== undefined && command.trim() !== '') {
+    if (installOf(command) === undefined) {
+      throw new Error("the terminal's status line runs a command of its own")
+    }
+
+    return upgrade(world, version)
+  }
+
+  const held = activeOf(world, globalsOf(world))
+  const manager = held?.manager ?? (world.sh('npm --version').status === 0 ? 'npm' : 'bun')
+
+  if (held === undefined) {
+    manage(world, manager === 'bun' ? `bun add -g ${PACKAGE}@${version}` : `npm install -g ${PACKAGE}@${version}`)
+  }
+
+  const path = settingsPathOf(world)
+
+  if (settings === undefined) {
+    mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, `${JSON.stringify({ statusLine: STATUS_LINE }, null, 2)}\n`)
+  } else {
+    keep(settings, { ...settings.value, statusLine: STATUS_LINE })
+  }
+
+  return [
+    held === undefined
+      ? `ccstatusline ${version} is installed globally with ${manager}.`
+      : `The global ccstatusline ${held.version} that ${manager} holds was kept.`,
+    settings === undefined
+      ? `The terminal's status line now runs it, set in \`${path}\`.`
+      : `The terminal's status line now runs it, set in \`${path}\`; the file as it was is \`${path}${BACKUP_SUFFIX}\`.`,
+  ]
+}
+
+/**
  * Takes ccstatusline out of the terminal: its `statusLine` and hooks out of
  * Claude Code's settings, and every global install off the machine.
  *
@@ -404,12 +466,14 @@ const here = () => ({
 function main([action, version]) {
   if (action === 'detect') {
     console.log(JSON.stringify(detect(here())))
+  } else if (action === 'install') {
+    console.log(install(here(), version).join('\n'))
   } else if (action === 'upgrade') {
     console.log(upgrade(here(), version).join('\n'))
   } else if (action === 'uninstall') {
     console.log(uninstall(here()).join('\n'))
   } else {
-    throw new Error('say what to do: detect, upgrade <version> or uninstall')
+    throw new Error('say what to do: detect, install <version>, upgrade <version> or uninstall')
   }
 }
 

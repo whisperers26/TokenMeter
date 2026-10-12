@@ -8,6 +8,7 @@ import { test } from 'node:test'
 
 import {
   detect,
+  install,
   installOf,
   managerOf,
   uninstall,
@@ -327,6 +328,96 @@ test('upgrades to nothing that is not a version, and nothing that is not ccstatu
     assert.deepEqual(machine.asked, [])
   } finally {
     machine.drop()
+  }
+})
+
+const INSTALLED = { statusLine: { type: 'command', command: 'ccstatusline', padding: 0, refreshInterval: 10 } }
+
+test('installs globally with npm where no status line runs, and has the settings run it, the file as it was kept', () => {
+  const before = { model: 'opus', hooks: { Stop: [{ hooks: [{ type: 'command', command: 'log.sh' }] }] } }
+  const machine = machineOf({ settings: before })
+
+  try {
+    const said = install(machine.world, '2.2.32')
+
+    assert.deepEqual(
+      [machine.asked.at(-1), machine.written(), JSON.parse(machine.backup()), said[0]],
+      [
+        'npm install -g ccstatusline@2.2.32',
+        { ...before, ...INSTALLED },
+        before,
+        'ccstatusline 2.2.32 is installed globally with npm.',
+      ],
+    )
+  } finally {
+    machine.drop()
+  }
+})
+
+test('installs where Claude Code has no settings file yet, and with bun where there is no npm', () => {
+  const machine = machineOf({ failing: ['npm root -g', 'npm --version'] })
+
+  try {
+    install(machine.world, '2.2.32')
+
+    assert.deepEqual([machine.asked.at(-1), machine.written()], ['bun add -g ccstatusline@2.2.32', INSTALLED])
+  } finally {
+    machine.drop()
+  }
+})
+
+test('an install keeps a global ccstatusline that is already there, and has the settings run it', () => {
+  const machine = machineOf({ settings: {}, globals: { bun: '2.2.30' } })
+
+  try {
+    const said = install(machine.world, '2.2.32')
+
+    assert.deepEqual(
+      [machine.asked.some(line => / -g ccstatusline@/.test(line)), machine.written(), said[0]],
+      [false, INSTALLED, 'The global ccstatusline 2.2.30 that bun holds was kept.'],
+    )
+  } finally {
+    machine.drop()
+  }
+})
+
+test('an install whose package manager fails leaves the settings as they were', () => {
+  const before = { model: 'opus' }
+  const machine = machineOf({ settings: before, failing: ['npm install -g ccstatusline@2.2.32'] })
+
+  try {
+    assert.throws(() => install(machine.world, '2.2.32'), /`npm install -g ccstatusline@2\.2\.32` failed: npm error code EACCES/)
+    assert.deepEqual(machine.written(), before)
+  } finally {
+    machine.drop()
+  }
+})
+
+test('an install over a status line whose ccstatusline was removed installs the package again', () => {
+  const before = statusLineOf('ccstatusline')
+  const machine = machineOf({ settings: before })
+
+  try {
+    install(machine.world, '2.2.32')
+
+    assert.deepEqual([machine.asked.at(-1), machine.written()], ['npm install -g ccstatusline@2.2.32', before])
+  } finally {
+    machine.drop()
+  }
+})
+
+test('installs nothing that is not a version, over another status line, or beside settings that do not parse', () => {
+  const other = machineOf({ settings: statusLineOf('~/bin/statusline.sh') })
+  const broken = machineOf({ settings: '{ not json' })
+
+  try {
+    assert.throws(() => install(other.world, '2.2.32; rm -rf ~'), /is not a version/)
+    assert.throws(() => install(other.world, '2.2.32'), /runs a command of its own/)
+    assert.throws(() => install(broken.world, '2.2.32'))
+    assert.deepEqual([other.asked, broken.asked], [[], []])
+  } finally {
+    other.drop()
+    broken.drop()
   }
 })
 

@@ -24,7 +24,12 @@ const ANSWERED_KEY = 'terminalAnswered'
 
 const UNINSTALL = 'Uninstall it'
 const REMOVE_SETTING = 'Remove the setting'
+const CONTINUE = 'Continue anyway'
 const NOT_NOW = 'Not now'
+
+/** What continuing past a version out of range costs, as the dialog ends its question. */
+const continuingCosts = (until: string) =>
+  `You can continue anyway: the band still draws, but /ccstatusline-desktop edit stays off until ${until}, and the layout is changed with your own ccstatusline.`
 
 /**
  * A terminal's ccstatusline that does not go with the mod's engine: of a
@@ -52,6 +57,14 @@ export type Aligned = {
   isChanged: boolean
   /** What the script said: what it did, or why it did not. */
   said: string
+}
+
+/** What a look at the terminal's ccstatusline, and the dialog about it, came to. */
+export type Alignment = {
+  /** The mismatch that still stands: found, and not ended by a change. */
+  standing?: Mismatch
+  /** What the change the person chose came to, where they chose one. */
+  aligned?: Aligned
 }
 
 /** A version's three numbers; undefined for text that does not start with them. */
@@ -129,10 +142,11 @@ export async function mismatchOf(host: Host, runtime: string): Promise<Mismatch 
   }
 }
 
-/** What a dialog asks, and what the script is told for each answer that changes something. */
+/** What a dialog asks, what the script is told for each answer that changes something, and the answer that changes nothing. */
 type Dialog = {
   question: string
   changes: Readonly<Record<string, readonly string[]>>
+  leave: string
 }
 
 /** What the store keeps of a mismatch the person answered about. */
@@ -150,6 +164,7 @@ function dialogOf(mismatch: Mismatch): Dialog {
     return {
       question: `Your terminal's status line runs ccstatusline, which is no longer installed, so the terminal shows no status line. Install ccstatusline ${recommended}, or remove the setting and let ccstatusline desktop draw in the terminal too?`,
       changes: { [`Install ${recommended}`]: ['upgrade', recommended], [REMOVE_SETTING]: ['uninstall'] },
+      leave: NOT_NOW,
     }
   }
 
@@ -158,13 +173,39 @@ function dialogOf(mismatch: Mismatch): Dialog {
 
   return isNewer
     ? {
-        question: `Your terminal runs ccstatusline ${version}, newer than the ${recommended} ccstatusline desktop carries. They share one settings file, and a layout saved from here can lose what the newer one added. Uninstall it and let ccstatusline desktop draw in the terminal too?`,
+        question: `Your terminal runs ccstatusline ${version}, newer than the ${recommended} ccstatusline desktop carries. They share one settings file, and a layout saved from here can lose what the newer one added. Uninstall it and let ccstatusline desktop draw in the terminal too? ${continuingCosts('you uninstall it')}`,
         changes: uninstall,
+        leave: CONTINUE,
       }
     : {
-        question: `Your terminal runs ccstatusline ${version}, older than ccstatusline desktop shares a settings file with (${OLDEST_SHARING} to ${recommended}): it shows what the layout says to hide. Upgrade it to ${recommended}, or uninstall it and let ccstatusline desktop draw in the terminal too?`,
+        question: `Your terminal runs ccstatusline ${version}, older than ccstatusline desktop shares a settings file with (${OLDEST_SHARING} to ${recommended}): it shows what the layout says to hide. Upgrade it to ${recommended}, or uninstall it and let ccstatusline desktop draw in the terminal too? ${continuingCosts('you do one of the two')}`,
         changes: { [`Upgrade to ${recommended}`]: ['upgrade', recommended], ...uninstall },
+        leave: CONTINUE,
       }
+}
+
+/**
+ * What `/ccstatusline-desktop edit` answers in the configurator's place while
+ * a terminal's ccstatusline of a version out of range stands: a layout saved
+ * from the mod's configurator is one the other reads differently, or loses from.
+ *
+ * @param mismatch the mismatch that stands
+ * @returns why edit is off and how the layout is changed meanwhile; undefined
+ *          for a ccstatusline that is gone, which reads no layout
+ */
+export function editOffOf(mismatch: Mismatch): string | undefined {
+  if ('isMissing' in mismatch) {
+    return undefined
+  }
+
+  const { version, recommended, isNewer } = mismatch
+  const choice = isNewer ? `**${UNINSTALL}**` : `**Upgrade to ${recommended}** or **${UNINSTALL}**`
+
+  return [
+    `\`/ccstatusline-desktop edit\` is off while your terminal runs ccstatusline ${version}: ccstatusline desktop shares its settings file with versions ${OLDEST_SHARING} to ${recommended} only.`,
+    'To change the layout meanwhile, run your own ccstatusline in a terminal: the band draws what it saves.',
+    `To turn edit back on, run \`/ccstatusline-desktop edit\` again and choose ${choice}.`,
+  ].join('\n')
 }
 
 /**
@@ -180,34 +221,34 @@ function dialogOf(mismatch: Mismatch): Dialog {
  * @param runtime the command the script is run with: `node`, `bun`, or a path to one
  * @param isRepeated whether to ask about a mismatch the person already answered
  *                   about; without it, each mismatch is asked about once
- * @returns what was done; undefined where nothing was asked for
+ * @returns the mismatch that still stands, if any, and what was done about it, if anything
  */
 export async function alignTerminal(
   host: Host,
   runtime: string,
   isRepeated: boolean,
-): Promise<Aligned | undefined> {
+): Promise<Alignment> {
   const mismatch = await mismatchOf(host, runtime)
 
   if (mismatch === undefined) {
-    return undefined
+    return {}
   }
 
   const answered = answeredOf(mismatch)
 
   if (!isRepeated && (await host.recall(ANSWERED_KEY).catch(() => undefined)) === answered) {
-    return undefined
+    return { standing: mismatch }
   }
 
-  const { question, changes } = dialogOf(mismatch)
+  const { question, changes, leave } = dialogOf(mismatch)
 
   // Dismissed, or asked where there is nobody to answer: asked again next time
   const answer = await host
-    .ask(question, { header: 'Terminal', options: [...Object.keys(changes), NOT_NOW] })
+    .ask(question, { header: 'Terminal', options: [...Object.keys(changes), leave] })
     .catch(() => undefined)
 
   if (answer === undefined) {
-    return undefined
+    return { standing: mismatch }
   }
 
   await host.remember(ANSWERED_KEY, answered).catch(() => undefined)
@@ -215,7 +256,7 @@ export async function alignTerminal(
   const change = Object.hasOwn(changes, answer) ? changes[answer] : undefined
 
   if (change === undefined) {
-    return undefined
+    return { standing: mismatch }
   }
 
   try {
@@ -223,16 +264,21 @@ export async function alignTerminal(
       timeoutMs: CHANGE_TIMEOUT_MS,
     })
 
-    return {
+    const aligned = {
       isChanged: ran.exitCode === 0,
       said: [ran.stdout.trim(), ran.stderr.trim()].filter(said => said !== '').join('\n'),
     }
+
+    return aligned.isChanged ? { aligned } : { aligned, standing: mismatch }
   } catch (error) {
     const said = error instanceof Error ? error.message : String(error)
 
     return {
-      isChanged: false,
-      said: `ccstatusline desktop: the terminal's ccstatusline was left as it is (${said})`,
+      standing: mismatch,
+      aligned: {
+        isChanged: false,
+        said: `ccstatusline desktop: the terminal's ccstatusline was left as it is (${said})`,
+      },
     }
   }
 }

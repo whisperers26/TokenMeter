@@ -19,6 +19,22 @@ Total: 22.7M | Session: 42.5% | Reset: 1hr 59m | Weekly: 15.0% | Weekly Reset: 3
 - **JetBrains IDEs, Android Studio included**: the same lines above the input of an AI Assistant chat with Claude, drawn by a small plugin that [one command installs](#jetbrains-ides).
 - **One layout for all**: the mod reads the same `~/.config/ccstatusline/settings.json` the terminal does.
 
+## With or without ccstatusline
+
+> [!IMPORTANT]
+> **ccstatusline desktop works with or without ccstatusline already installed.** It carries its own copy of the ccstatusline engine (2.2.32), so there is nothing else to install. Where ccstatusline is already set up in your terminal, the two share one layout.
+
+How it goes with a ccstatusline you already have depends on that one's version:
+
+| The ccstatusline in your terminal | The band | `/ccstatusline-desktop edit` |
+| --- | --- | --- |
+| None | Draws, in the desktop app and the terminal | On |
+| **2.2.29 to 2.2.32** (compatible) | Draws; your layout carries over | On |
+| Any other version | Draws | **Off** |
+
+> [!WARNING]
+> **With a ccstatusline older than 2.2.29 or newer than 2.2.32, the band still draws, but `/ccstatusline-desktop edit` is switched off.** You can keep changing the layout with your own `ccstatusline` command, and the band draws what it saves. To turn `edit` back on, bring your ccstatusline to a compatible version or uninstall it: the mod [offers both in one click](#install).
+
 ## Install
 
 You need a recent Claude Code (tested with 2.1.296) and Node.js 14 or later on your `PATH` (the mod runs the ccstatusline engine with it; [bun works too](#options)). Mods are an early-access part of Claude Code, so an update to it can change what a mod may do before this one catches up.
@@ -43,13 +59,13 @@ One settings file for both only works while the two agree on what is in it, whic
 
 | Your terminal's ccstatusline | What the dialog offers |
 | --- | --- |
-| Older than 2.2.29 | **Upgrade to 2.2.32**, **Uninstall it**, or **Not now** |
-| Newer than 2.2.32 | **Uninstall it**, or **Not now** |
+| Older than 2.2.29 | **Upgrade to 2.2.32**, **Uninstall it**, or **Continue anyway** |
+| Newer than 2.2.32 | **Uninstall it**, or **Continue anyway** |
 | No longer installed, the `statusLine` still there | **Install 2.2.32**, **Remove the setting**, or **Not now** |
 
 - **Upgrade** installs 2.2.32 over a global install, with the package manager that holds it (`npm install -g ccstatusline@2.2.32`, or `bun add -g`), or makes an `npx` or `bunx` command name that version.
 - **Uninstall** takes the `statusLine` and ccstatusline's own hooks out of Claude Code's `settings.json` and removes every global install (`npm uninstall -g ccstatusline`, `bun remove -g ccstatusline`). The mod then draws the band in the terminal too.
-- **Not now** changes nothing, and that version is not asked about again until you run `/ccstatusline-desktop edit`.
+- **Continue anyway** changes nothing: the band goes on drawing, and that version is not asked about again until you run `/ccstatusline-desktop edit`. While it stands, `/ccstatusline-desktop edit` opens no configurator, since a layout saved from the mod's is one your ccstatusline reads differently, or loses options from. It asks the same question again and, left unanswered or answered the same, says how to change the layout meanwhile: with your own `ccstatusline` command.
 
 The last row is what `npm uninstall -g ccstatusline` alone leaves behind: the package is gone, but Claude Code's settings still run its command, so the terminal draws no status line and the mod, seeing a `statusLine`, stays out. **Install** puts ccstatusline 2.2.32 back; **Remove the setting** does what **Uninstall** does for what is left, and the mod draws the band in the terminal. It is asked only where npm answers and finds no ccstatusline, and no command of that name is left on the `PATH`.
 
@@ -96,7 +112,7 @@ The command `/ccstatusline-desktop` does one of four things, by what follows it:
 | Command | What it does |
 | --- | --- |
 | `/ccstatusline-desktop` | Prints the current lines as text, the path of the settings file behind them and the command that opens the configurator. When the band shows `ccstatusline desktop: the engine did not run (...)` instead of your lines, it says how the engine is being run. |
-| `/ccstatusline-desktop edit` | Where your terminal's ccstatusline is of a [version out of range](#install), first asks whether to upgrade or uninstall it. Then asks whether to open the configurator, and on a yes opens it in a new terminal window: through `start` on Windows, Terminal on macOS, and elsewhere the first of `x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`, `alacritty` and `xterm` on your `PATH`. A layout saved there shows in the band at its next refresh. In a `claude -p` run there is nobody to ask, and it prints the command to paste instead. It has been run on Windows only. |
+| `/ccstatusline-desktop edit` | Where your terminal's ccstatusline is of a [version out of range](#install), first asks whether to upgrade or uninstall it, and while it is left as it is, stops there: [edit is off](#with-or-without-ccstatusline). Otherwise asks whether to open the configurator, and on a yes opens it in a new terminal window: through `start` on Windows, Terminal on macOS, and elsewhere the first of `x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`, `alacritty` and `xterm` on your `PATH`. A layout saved there shows in the band at its next refresh. In a `claude -p` run there is nobody to ask, and it prints the command to paste instead. It has been run on Windows only. |
 | `/ccstatusline-desktop update` | Asks what to [update](#update): the mod, the JetBrains plugin, or both. The recommended way to update the mod, and to install or update the JetBrains plugin. In a `claude -p` run there is nobody to ask, and it prints the commands to run instead. |
 | `/ccstatusline-desktop jetbrains` | Installs the [JetBrains plugin](#jetbrains-ides) of the mod's version without asking: what a script, or a `claude -p` run, uses. |
 

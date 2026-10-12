@@ -75,7 +75,7 @@ Session: 7.0% | Reset: 3hr 29m | Weekly: 10.0% | Weekly Reset: 2d 13hr 39m      
 ╰──────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-Each chat shows the lines of its own Claude session, refreshed as the mod refreshes them. A chat narrower than a line wraps it, a link opens on a click, and a chat with another agent shows no band.
+Each chat shows the lines of its own Claude session, refreshed as the mod refreshes them. A chat narrower than a line wraps it, a link opens on a click, and a chat with another agent shows no band. Claude counts whether you added it as an ACP agent yourself or use the Claude agent AI Assistant comes with (that one from 0.1.5 of the mod, as it runs an older Claude Code of its own); Junie and other agents are not Claude Code, and the mod does not run in them.
 
 You need the mod installed in Claude Code as [above](#install), at 0.1.4 or later, and an IDE of the 2026.2 line or later with JetBrains AI Assistant and Claude as an ACP agent. Then, from any shell:
 

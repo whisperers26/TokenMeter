@@ -428,6 +428,21 @@ export const register: Register = (on, options) => {
     return answered
   })
 
+  // A turn's first request names the effort it is sent with: the one place a
+  // level the settings cannot hold (max) is said before the turn has ended
+  on('turn.step', async function* ($, e, next) {
+    if (
+      e.agentId === undefined &&
+      typeof e.effort === 'string' &&
+      e.effort !== told.effort
+    ) {
+      told = { ...told, effort: e.effort }
+      request()
+    }
+
+    return yield* next(e)
+  })
+
   on('classic.UserPromptSubmit', ($, e, next) => {
     note(e)
 

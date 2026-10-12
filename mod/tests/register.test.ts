@@ -288,6 +288,80 @@ describe('register', () => {
     expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'low' } })
   })
 
+  test("shows the effort a turn's first request carries when the settings cannot hold it, at the turn's start", async ($, on) => {
+    const { clock, runs } = worldOf(on, { settings: { effortLevel: 'high' } })
+
+    on('turn.step', async function* (_$, e) {
+      return {
+        turnId: e.turnId,
+        index: e.index,
+        answer: '',
+        toolUses: [],
+        stopReason: null,
+        usage: null,
+      }
+    })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+
+    const step = $.turn.step({
+      turnId: 'turn-1',
+      index: 0,
+      model: 'claude-opus-5-5',
+      effort: 'max',
+      messageCount: 1,
+    })
+
+    for await (const chunk of step) {
+      expect(chunk).toBeDefined()
+    }
+
+    await step.result
+    await clock.settle()
+
+    expect(runs).toHaveLength(2)
+    expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'max' } })
+  })
+
+  test("a subagent's request names its own effort, which is not the session's", async ($, on) => {
+    const { clock, runs } = worldOf(on, { settings: { effortLevel: 'high' } })
+
+    on('turn.step', async function* (_$, e) {
+      return {
+        turnId: e.turnId,
+        index: e.index,
+        answer: '',
+        toolUses: [],
+        stopReason: null,
+        usage: null,
+      }
+    })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+
+    const step = $.turn.step({
+      turnId: 'turn-1',
+      index: 0,
+      model: 'claude-haiku-5-5',
+      effort: 'low',
+      messageCount: 1,
+      agentId: 'agent-1',
+    })
+
+    for await (const chunk of step) {
+      expect(chunk).toBeDefined()
+    }
+
+    await step.result
+    await clock.settle()
+
+    expect(runs).toHaveLength(1)
+  })
+
   test('a settings effort that did not change runs nothing', async ($, on) => {
     const { clock, runs } = worldOf(on, { settings: { effortLevel: 'high' } })
 

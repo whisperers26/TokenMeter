@@ -28,6 +28,11 @@ export type Host = {
   invalidate: () => void
   /** Rejects when the dialog is dismissed, and where there is nobody to ask. */
   ask: (question: string, options: AskOptions) => Promise<string>
+  /** Writes a line to the transcript, which the model is not sent. */
+  log: (text: string) => void
+  /** What the mod's own store keeps under `key` between sessions. */
+  recall: (key: string) => Promise<unknown>
+  remember: (key: string, value: unknown) => Promise<void>
   sessionId: () => Promise<string>
   cwd: () => Promise<string>
   projectRoot: () => Promise<string>

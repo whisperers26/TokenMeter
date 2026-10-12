@@ -37,7 +37,20 @@ The plugin is all you need. It carries its own copy of the ccstatusline engine, 
 
 To build your own layout, run `/ccstatusline-desktop edit`. It asks first, then opens the configuration TUI in a new terminal window: the TUI of the very engine the mod runs, so the two always agree. Where no window can be opened (a Linux machine with none of the common terminals, a session over SSH), it prints the command to paste into a terminal instead, as plain `/ccstatusline-desktop` always does. Without Claude Code at hand, `npx -y ccstatusline@2.2.32` opens the same TUI, of the same version, from npm. Do not reach for `ccstatusline@latest` here: once upstream is ahead of this fork, a newer TUI can save a widget or an option the bundled engine does not know yet, and the band may not show it. [docs/USAGE.md](docs/USAGE.md) covers every widget and option.
 
-If ccstatusline is already set up in your terminal, it carries on as before, whatever its version: your `statusLine` command still draws under the prompt there, and the mod stays out of its way. The band reads the same settings file, so the layout you have carries over; only a widget upstream added after 2.2.32 waits for this fork to catch up.
+If ccstatusline is already set up in your terminal, it carries on as before: your `statusLine` command still draws under the prompt there, and the mod stays out of its way. The band reads the same settings file, so the layout you have carries over.
+
+One settings file for both only works while the two agree on what is in it, which they do when your terminal's ccstatusline is of version 2.2.29 to 2.2.32. The mod's engine saves the file in the format 2.2.29 introduced, and an older ccstatusline reading it shows what the layout says to hide (`no git`, an empty count); a newer one may keep options there that a save from the mod's configurator drops. So when your `statusLine` runs a ccstatusline outside that range, the mod asks what to do about it, once per version at a session's first draw and every time you run `/ccstatusline-desktop edit`:
+
+| Your terminal's ccstatusline | What the dialog offers |
+| --- | --- |
+| Older than 2.2.29 | **Upgrade to 2.2.32**, **Uninstall it**, or **Not now** |
+| Newer than 2.2.32 | **Uninstall it**, or **Not now** |
+
+- **Upgrade** installs 2.2.32 over a global install, with the package manager that holds it (`npm install -g ccstatusline@2.2.32`, or `bun add -g`), or makes an `npx` or `bunx` command name that version.
+- **Uninstall** takes the `statusLine` and ccstatusline's own hooks out of Claude Code's `settings.json` and removes every global install (`npm uninstall -g ccstatusline`, `bun remove -g ccstatusline`). The mod then draws the band in the terminal too.
+- **Not now** changes nothing, and that version is not asked about again until you run `/ccstatusline-desktop edit`.
+
+Either change keeps `settings.json` as it was beside it, as `settings.json.before-ccstatusline-desktop`, and neither touches your layout. A `statusLine` that reaches ccstatusline through a script of your own is not looked at, nor is one set in a project's settings.
 
 ### Update
 
@@ -80,7 +93,7 @@ The command `/ccstatusline-desktop` does one of four things, by what follows it:
 | Command | What it does |
 | --- | --- |
 | `/ccstatusline-desktop` | Prints the current lines as text, the path of the settings file behind them and the command that opens the configurator. When the band shows `ccstatusline desktop: the engine did not run (...)` instead of your lines, it says how the engine is being run. |
-| `/ccstatusline-desktop edit` | Asks whether to open the configurator, and on a yes opens it in a new terminal window: through `start` on Windows, Terminal on macOS, and elsewhere the first of `x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`, `alacritty` and `xterm` on your `PATH`. A layout saved there shows in the band at its next refresh. In a `claude -p` run there is nobody to ask, and it prints the command to paste instead. It has been run on Windows only. |
+| `/ccstatusline-desktop edit` | Where your terminal's ccstatusline is of a [version out of range](#install), first asks whether to upgrade or uninstall it. Then asks whether to open the configurator, and on a yes opens it in a new terminal window: through `start` on Windows, Terminal on macOS, and elsewhere the first of `x-terminal-emulator`, `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`, `alacritty` and `xterm` on your `PATH`. A layout saved there shows in the band at its next refresh. In a `claude -p` run there is nobody to ask, and it prints the command to paste instead. It has been run on Windows only. |
 | `/ccstatusline-desktop update` | Asks what to [update](#update): the mod, the JetBrains plugin, or both. The recommended way to update the mod, and to install or update the JetBrains plugin. In a `claude -p` run there is nobody to ask, and it prints the commands to run instead. |
 | `/ccstatusline-desktop jetbrains` | Installs the [JetBrains plugin](#jetbrains-ides) of the mod's version without asking: what a script, or a `claude -p` run, uses. |
 
@@ -215,7 +228,7 @@ The plugin also drops snapshots no session has written for a week.
 | `mod/hooks/` | The mod: one hooks module and the files it imports |
 | `mod/tests/` | The mod's tests |
 | `mod/engine/` | The vendored ccstatusline engine the mod runs |
-| `mod/scripts/` | What vendors the engine, what installs the JetBrains plugin from a release, what opens the configurator in a window of its own, and what updates the mod |
+| `mod/scripts/` | What vendors the engine, what installs the JetBrains plugin from a release, what opens the configurator in a window of its own, what updates the mod, and what upgrades or uninstalls the terminal's ccstatusline |
 | `jetbrains/` | The JetBrains plugin: its sources, its tests, and the one file that builds it |
 | `.claude-plugin/marketplace.json` | Lists `mod/` as the plugin `ccstatusline-desktop` |
 
@@ -230,6 +243,7 @@ claude -p "/ccstatusline-desktop" --plugin-dir mod   # the real engine, end to e
 node --test mod/scripts/install-jetbrains.test.mjs   # the installer `/ccstatusline-desktop jetbrains` runs
 node --test mod/scripts/open-configurator.test.mjs   # what `/ccstatusline-desktop edit` opens the configurator with
 node --test mod/scripts/update-mod.test.mjs          # what `/ccstatusline-desktop update` updates the mod with
+node --test mod/scripts/terminal-ccstatusline.test.mjs   # what looks at the terminal's ccstatusline, upgrades and uninstalls it
 ```
 
 `claude --plugin-dir mod` loads the mod from this folder for one session and reloads it as you save. It also lays Claude Code's type declarations in `mod/.claude-plugin/types`, after which `npx tsc -p mod` type-checks the mod.

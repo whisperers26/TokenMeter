@@ -1,10 +1,11 @@
+import type { On } from 'claude-code'
 import { describe, expect, test } from 'claude-code/testing'
 
 import { BAND } from './fixtures/band'
 import { ENGINE_OUTPUT } from './fixtures/engine-output'
 import { rowsOf } from './fixtures/rows-of'
 import { exited, isLeftAlone, printed, worldOf } from './fixtures/world'
-import type { World } from './fixtures/world'
+import type { World, WorldOptions } from './fixtures/world'
 
 /** A session the desktop app hosts: no terminal, a person at the prompt. */
 const START = { surface: null, isInteractive: true, cwd: '/work/app' } as const
@@ -67,6 +68,37 @@ const NO_NODE =
 /** Claude Code settings that already run a status line under a terminal. */
 const OWN_STATUS_LINE = {
   statusLine: { type: 'command', command: 'npx -y ccstatusline@latest' },
+}
+
+/** What the script says of a terminal whose global ccstatusline is of `version`. */
+const terminalAt = (version: string) =>
+  `${JSON.stringify({ kind: 'global', manager: 'npm', version })}\n`
+
+const UPGRADED =
+  "ccstatusline 2.2.32 is installed globally with npm: the terminal's status line runs it."
+
+/**
+ * Answers every dialog the mod opens with what `answerOf` says to its question.
+ *
+ * @returns the questions asked so far, oldest first
+ */
+function answering(on: On, answerOf: (question: string) => string): string[] {
+  const asked: string[] = []
+
+  on('tool.call', { tool: 'AskUserQuestion' }, ($, e) => {
+    asked.push(...e.questions.map(({ question }) => question))
+
+    return {
+      result: {
+        questions: e.questions,
+        answers: Object.fromEntries(
+          e.questions.map(({ question }) => [question, answerOf(question)]),
+        ),
+      },
+    }
+  })
+
+  return asked
 }
 
 /** What the mod wrote to the engine's standard input on its `at`th run. */
@@ -761,6 +793,30 @@ describe('register', () => {
     ])
   })
 
+  test("/ccstatusline-desktop edit first asks about a terminal's ccstatusline out of range, answered about before or not", async ($, on) => {
+    const { runs, terminalRuns } = worldOf(on, {
+      settings: OWN_STATUS_LINE,
+      stored: { terminalAnswered: '2.2.20 beside 2.2.32' },
+      terminal: e => printed(e.argv[2] === 'detect' ? terminalAt('2.2.20') : `${UPGRADED}\n`),
+      run: () => printed('The configurator is open in a new terminal window.\n'),
+    })
+
+    const asked = answering(on, question =>
+      question.startsWith('Your terminal') ? 'Upgrade to 2.2.32' : 'Open the configurator',
+    )
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run({ ...COMMAND, args: 'edit' })
+
+    expect([asked.map(question => question.slice(0, 13)), terminalRuns, runs.length, text]).toEqual([
+      ['Your terminal', 'Open the ccst'],
+      [['detect'], ['upgrade', '2.2.32']],
+      1,
+      `${UPGRADED}\n\nThe configurator is open in a new terminal window.`,
+    ])
+  })
+
   test('/ccstatusline-desktop edit opens nothing where nobody answers the dialog', async ($, on) => {
     const { runs } = worldOf(on)
 
@@ -986,5 +1042,96 @@ describe('register', () => {
     await clock.advance(60_000)
 
     expect([runs, writes]).toEqual([[], []])
+  })
+
+  test("at its first draw, asks about a terminal's ccstatusline too old to share the settings, and upgrades it on that answer", async ($, on) => {
+    const { clock, terminalRuns, logged } = worldOf(on, {
+      settings: OWN_STATUS_LINE,
+      terminal: e => printed(e.argv[2] === 'detect' ? terminalAt('2.2.20') : `${UPGRADED}\n`),
+    })
+
+    const asked = answering(on, () => 'Upgrade to 2.2.32')
+
+    await $.session.start(START)
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+
+    await clock.settle()
+    await ui.redraw({ ...BAND.props, isWorking: true })
+    await clock.settle()
+
+    expect([asked.length, terminalRuns, logged]).toEqual([
+      1,
+      [['detect'], ['upgrade', '2.2.32']],
+      [UPGRADED],
+    ])
+  })
+
+  test("asks nothing about a terminal's ccstatusline of a version that shares the settings", async ($, on) => {
+    const { clock, terminalRuns, logged } = worldOf(on, {
+      settings: OWN_STATUS_LINE,
+      terminal: () => printed(terminalAt('2.2.30')),
+    })
+
+    const asked = answering(on, () => 'Uninstall it')
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+
+    expect([asked, terminalRuns, logged]).toEqual([[], [['detect']], []])
+  })
+
+  test('looks at no terminal where the settings run no status line', async ($, on) => {
+    const { clock, terminalRuns } = worldOf(on)
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+
+    expect(terminalRuns).toEqual([])
+  })
+
+  test('a version left as it is on Not now is not asked about in the next session', async ($, on) => {
+    const { clock } = worldOf(on, {
+      settings: OWN_STATUS_LINE,
+      terminal: () => printed(terminalAt('2.2.20')),
+      stored: { terminalAnswered: '2.2.20 beside 2.2.32' },
+    })
+
+    const asked = answering(on, () => 'Not now')
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+
+    expect(asked).toEqual([])
+  })
+
+  test('a terminal whose ccstatusline was uninstalled gets the band', async ($, on) => {
+    const options: WorldOptions = {
+      settings: OWN_STATUS_LINE,
+      terminal: e => {
+        if (e.argv[2] === 'detect') {
+          return printed(terminalAt('2.4.0'))
+        }
+
+        options.settings = {}
+
+        return printed('ccstatusline was taken out.\n')
+      },
+    }
+
+    const { clock } = worldOf(on, options)
+
+    answering(on, () => 'Uninstall it')
+
+    await $.session.start(TERMINAL)
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+
+    await clock.settle()
+
+    expect(rowsOf(await ui.drawn())).toHaveLength(2)
   })
 })

@@ -181,7 +181,7 @@ Session: 7.0% | Reset: 3hr 29m | Weekly: 10.0% | Weekly Reset: 2d 13hr 39m      
 ╰──────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-Each chat shows the lines of its own Claude session, refreshed as the mod refreshes them. A chat narrower than a line wraps it, a link opens on a click, and a chat with another agent shows no band. Claude counts whether you [added it as an ACP agent yourself](#claude-on-your-own-subscription) or use the Claude agent AI Assistant comes with (that one runs an older Claude Code of its own); Junie and other agents are not Claude Code, and the mod does not run in them.
+Each chat shows the lines of its own Claude session, refreshed as the mod refreshes them. A chat narrower than a line cuts it at its edge and ends it in `...`, as a terminal does, a link opens on a click, and a chat with another agent shows no band. Claude counts whether you [added it as an ACP agent yourself](#claude-on-your-own-subscription) or use the Claude agent AI Assistant comes with (that one runs an older Claude Code of its own); Junie and other agents are not Claude Code, and the mod does not run in them.
 
 You need the mod installed in Claude Code as [above](#install) and an IDE of the 2026.1 line or later with JetBrains AI Assistant and Claude as an agent in it. Android Studio is such an IDE, with JetBrains AI Assistant installed from its plugins page. Then, inside a session of Claude Code, run
 

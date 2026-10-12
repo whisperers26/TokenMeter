@@ -1,4 +1,5 @@
 import type {
+  AskOptions,
   ProcessRunInit,
   ProcessRunResult,
   RenderSurface,
@@ -25,6 +26,8 @@ export type Host = {
     init?: ProcessRunInit,
   ) => Promise<ProcessRunResult>
   invalidate: () => void
+  /** Rejects when the dialog is dismissed, and where there is nobody to ask. */
+  ask: (question: string, options: AskOptions) => Promise<string>
   sessionId: () => Promise<string>
   cwd: () => Promise<string>
   projectRoot: () => Promise<string>

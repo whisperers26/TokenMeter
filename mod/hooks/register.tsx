@@ -118,7 +118,7 @@ export const register: Register = (on, options) => {
    * @returns the mismatch that still stands, and what was done about it
    */
   async function alignWithTerminal(host: Host, isRepeated: boolean) {
-    const alignment = await alignTerminal(host, runtime, isRepeated)
+    const alignment = await alignTerminal(host, runtime, isRepeated ? 'again' : 'once')
 
     if (alignment.aligned?.isChanged) {
       isTerminalFree = await host.settings().then(

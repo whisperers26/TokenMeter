@@ -84,6 +84,10 @@ const terminalAt = (version: string) =>
 const UPGRADED =
   "ccstatusline 2.2.32 is installed globally with npm: the terminal's status line runs it."
 
+/** What the script says once it has put ccstatusline in a terminal that ran no status line. */
+const INSTALLED =
+  "ccstatusline 2.2.32 is installed globally with npm.\nThe terminal's status line now runs it."
+
 /**
  * Answers every dialog the mod opens with what `answerOf` says to its question.
  *
@@ -986,6 +990,7 @@ describe('register', () => {
 
   test('/ccstatusline-desktop edit opens the configurator once the dialog says to, not the engine', async ($, on) => {
     const { runs } = worldOf(on, {
+      settings: OWN_STATUS_LINE,
       run: () => printed('The configurator is open in a new terminal window.\n'),
     })
 
@@ -1057,26 +1062,30 @@ describe('register', () => {
     ])
   })
 
-  test("/ccstatusline-desktop edit still opens the configurator beside a status line whose ccstatusline is gone", async ($, on) => {
-    const { runs } = worldOf(on, {
+  test("/ccstatusline-desktop edit installs ccstatusline where the terminal's is gone, then opens the configurator", async ($, on) => {
+    const { runs, terminalRuns } = worldOf(on, {
       settings: OWN_STATUS_LINE,
-      terminal: () => printed('{"kind":"global","isMissing":true}'),
+      terminal: e =>
+        printed(e.argv[2] === 'detect' ? '{"kind":"global","isMissing":true}' : `${INSTALLED}\n`),
       run: () => printed('The configurator is open in a new terminal window.'),
     })
 
-    answering(on, question =>
-      question.startsWith('Your terminal') ? 'Not now' : 'Open the configurator',
-    )
+    const asked = answering(on, () => 'Open the configurator')
 
     await $.session.start(START)
 
     const { text } = await $.command.run({ ...COMMAND, args: 'edit' })
 
-    expect([runs.length, text]).toEqual([1, 'The configurator is open in a new terminal window.'])
+    expect([asked.length, terminalRuns, runs.length, text]).toEqual([
+      1,
+      [['detect'], ['install', '2.2.32']],
+      1,
+      `${INSTALLED}\n\nThe configurator is open in a new terminal window.`,
+    ])
   })
 
   test('/ccstatusline-desktop edit opens nothing where nobody answers the dialog', async ($, on) => {
-    const { runs } = worldOf(on)
+    const { runs } = worldOf(on, { settings: OWN_STATUS_LINE })
 
     on('tool.call', { tool: 'AskUserQuestion' }, () => ({ deny: 'no one to ask' }))
 
@@ -1133,7 +1142,10 @@ describe('register', () => {
   })
 
   test('/ccstatusline-desktop update runs what the dialog chose, not the engine', async ($, on) => {
-    const { runs } = worldOf(on, { run: () => printed('Rider2026.2: installed\n') })
+    const { runs } = worldOf(on, {
+      settings: OWN_STATUS_LINE,
+      run: () => printed('Rider2026.2: installed\n'),
+    })
 
     on('tool.call', { tool: 'AskUserQuestion' }, ($, e) => ({
       result: {
@@ -1160,7 +1172,7 @@ describe('register', () => {
   })
 
   test('/ccstatusline-desktop update runs nothing where nobody answers the dialog', async ($, on) => {
-    const { runs } = worldOf(on)
+    const { runs } = worldOf(on, { settings: OWN_STATUS_LINE })
 
     on('tool.call', { tool: 'AskUserQuestion' }, () => ({ deny: 'no one to ask' }))
 
@@ -1405,7 +1417,7 @@ describe('register', () => {
       terminal: () => printed(terminalAt('2.2.30')),
     })
 
-    const asked = answering(on, () => 'Uninstall it')
+    const asked = answering(on, () => 'Upgrade to 2.2.32')
 
     await $.session.start(START)
     await $.ui.mount({ ...BAND, surface: 'desktop' })
@@ -1414,8 +1426,28 @@ describe('register', () => {
     expect([asked, terminalRuns, logged]).toEqual([[], [['detect']], []])
   })
 
-  test('looks at no terminal where the settings run no status line', async ($, on) => {
-    const { clock, terminalRuns } = worldOf(on)
+  test('at its first draw, installs ccstatusline where the terminal runs no status line, and says so', async ($, on) => {
+    const { clock, terminalRuns, logged } = worldOf(on, {
+      terminal: () => printed(`${INSTALLED}\n`),
+    })
+
+    const asked = answering(on, () => 'Continue anyway')
+
+    await $.session.start(START)
+
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+
+    await clock.settle()
+    await ui.redraw({ ...BAND.props, isWorking: true })
+    await clock.settle()
+
+    expect([asked, terminalRuns, logged]).toEqual([[], [['install', '2.2.32']], [INSTALLED]])
+  })
+
+  test("looks at no terminal where the settings run another tool's status line", async ($, on) => {
+    const { clock, terminalRuns } = worldOf(on, {
+      settings: { statusLine: { type: 'command', command: '~/bin/statusline.sh' } },
+    })
 
     await $.session.start(START)
     await $.ui.mount({ ...BAND, surface: 'desktop' })
@@ -1438,32 +1470,5 @@ describe('register', () => {
     await clock.settle()
 
     expect(asked).toEqual([])
-  })
-
-  test('a terminal whose ccstatusline was uninstalled gets the band', async ($, on) => {
-    const options: WorldOptions = {
-      settings: OWN_STATUS_LINE,
-      terminal: e => {
-        if (e.argv[2] === 'detect') {
-          return printed(terminalAt('2.4.0'))
-        }
-
-        options.settings = {}
-
-        return printed('ccstatusline was taken out.\n')
-      },
-    }
-
-    const { clock } = worldOf(on, options)
-
-    answering(on, () => 'Uninstall it')
-
-    await $.session.start(TERMINAL)
-
-    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-
-    await clock.settle()
-
-    expect(rowsOf(await ui.drawn())).toHaveLength(2)
   })
 })

@@ -304,6 +304,39 @@ describe('register', () => {
     expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'max' } })
   })
 
+  test("passes on the effort saved for the session's model, not the top-level one", async ($, on) => {
+    const { clock, runs } = worldOf(on, {
+      settings: {
+        effortLevel: 'high',
+        modelSettings: { 'claude-opus-5-5': { effortLevel: 'medium' } },
+      },
+    })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+
+    expect(stdinOf(runs)).toMatchObject({ effort: { level: 'medium' } })
+  })
+
+  test('runs the lines again when the effort saved for the model changes', async ($, on) => {
+    const saved = { 'claude-opus-5-5': { effortLevel: 'medium' } }
+    const settings = { effortLevel: 'high', modelSettings: saved }
+    const { clock, runs } = worldOf(on, { settings })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.classic.Stop({ stop_hook_active: false, effort: { level: 'medium' } })
+
+    saved['claude-opus-5-5'].effortLevel = 'xhigh'
+    await clock.advance(2_000)
+    await clock.settle()
+
+    expect(runs).toHaveLength(2)
+    expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'xhigh' } })
+  })
+
   test('an effort the flag layer never held runs nothing', async ($, on) => {
     const { clock, runs } = worldOf(on, { settings: { effortLevel: 'high' } })
 

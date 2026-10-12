@@ -8,7 +8,7 @@ import type {
 
 import { bandOf } from './band'
 import { editLayout, isEditAsked } from './edit'
-import { effortLevelOf, effortSaidBy } from './effort'
+import { effortLevelOf, effortOf, effortSaidBy } from './effort'
 import type { Host } from './host'
 import { installJetBrains, isJetBrainsAsked } from './jetbrains'
 import { reportOf } from './report'
@@ -95,6 +95,9 @@ export const register: Register = (on, options) => {
 
   /** The level the flag layer held when last looked at: a host's pick. */
   let flagEffort: string | undefined
+
+  /** The effort the settings gave the session when last looked at. */
+  let effectiveEffort: string | undefined
 
   // A terminal that runs a status line of its own already shows these lines
   // under the prompt; until the settings say it runs none, it is left alone
@@ -236,16 +239,19 @@ export const register: Register = (on, options) => {
   }
 
   /**
-   * Looks at the flag layer, where a host that sets the session's effort puts
-   * its pick, and asks for fresh lines when the level there is not the one
-   * last seen. An in-process read, not a run of the engine.
+   * Looks at where the session's effort is set, and asks for fresh lines when
+   * it is not the one last seen. In-process reads, not a run of the engine.
    *
-   * The layer holds a level the persisted settings can hold (low to xhigh) and
-   * is empty for `max` and for the model's own: the merged settings then fall
-   * back to the settings file's level, which is no word on the session. A
-   * level that leaves the layer is told as max, the pick a person sets by
-   * hand that the layer cannot hold; the turn that follows says the level it
-   * ran with.
+   * A host that sets the effort puts its pick in the flag layer, which holds a
+   * level the persisted settings can hold (low to xhigh) and is empty for `max`
+   * and for the model's own: the merged settings then fall back to the settings
+   * file's level, which is no word on the session. A level that leaves the
+   * layer is told as max, the pick a person sets by hand that the layer cannot
+   * hold; the turn that follows says the level it ran with.
+   *
+   * A terminal's `/effort` picker saves the level for the model in the user's
+   * settings instead, and a switch of model moves to that model's saved level:
+   * with the layer unchanged, the level the settings give is the session's.
    */
   function watchEffort() {
     const host = bound
@@ -254,14 +260,19 @@ export const register: Register = (on, options) => {
       return
     }
 
-    void host
-      .settings('flag')
-      .then(flag => {
+    void Promise.all([host.settings('flag'), host.settings(), host.model()])
+      .then(([flag, settings, model]) => {
         const level = effortLevelOf(flag)
+        const effective = effortOf(settings, flag, model)
 
         if (level !== flagEffort) {
           flagEffort = level
+          effectiveEffort = effective
           told = { ...told, effort: level ?? HIDDEN_PICK }
+          request()
+        } else if (effective !== effectiveEffort) {
+          effectiveEffort = effective
+          told = { ...told, effort: effective }
           request()
         }
       })
@@ -306,6 +317,8 @@ export const register: Register = (on, options) => {
 
     isTerminalFree = settings !== undefined && !hasOwnStatusLine(settings)
     flagEffort = flag && effortLevelOf(flag)
+    effectiveEffort =
+      settings && effortOf(settings, flag ?? {}, await $.session.model().catch(() => ''))
 
     ticking?.cancel()
     ticking = refreshMs === undefined ? null : bound.every(refreshMs, request)

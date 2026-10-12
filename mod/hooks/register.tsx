@@ -8,6 +8,7 @@ import type {
 
 import { bandOf } from './band'
 import { editLayout, isEditAsked } from './edit'
+import { effortLevelOf, effortOf, effortSaidBy } from './effort'
 import type { Host } from './host'
 import { installJetBrains, isJetBrainsAsked } from './jetbrains'
 import { reportOf } from './report'
@@ -26,6 +27,15 @@ const DEFAULT_REFRESH_SECONDS = 30
 
 /** A width, in cells, wider than any status line. */
 const UNBOUNDED_COLUMNS = 1000
+
+/**
+ * How often Claude Code's flag layer is looked at for a change of effort, in
+ * milliseconds: a read in this process, and no run of the engine.
+ */
+const SETTINGS_WATCH_MS = 2000
+
+/** The pick a level leaving the flag layer stands for: see `watchEffort`. */
+const HIDDEN_PICK = 'max'
 
 /** The shortest period the timer takes: each tick starts a process. */
 const MIN_REFRESH_SECONDS = 5
@@ -78,9 +88,16 @@ export const register: Register = (on, options) => {
   let status: Status | null = null
   let queued: Timer | null = null
   let ticking: Timer | null = null
+  let watching: Timer | null = null
   let running: Promise<void> | null = null
   let isStale = false
   let told: Told = {}
+
+  /** The level the flag layer held when last looked at: a host's pick. */
+  let flagEffort: string | undefined
+
+  /** The effort the settings gave the session when last looked at. */
+  let effectiveEffort: string | undefined
 
   // A terminal that runs a status line of its own already shows these lines
   // under the prompt; until the settings say it runs none, it is left alone
@@ -221,6 +238,47 @@ export const register: Register = (on, options) => {
     }
   }
 
+  /**
+   * Looks at where the session's effort is set, and asks for fresh lines when
+   * it is not the one last seen. In-process reads, not a run of the engine.
+   *
+   * A host that sets the effort puts its pick in the flag layer, which holds a
+   * level the persisted settings can hold (low to xhigh) and is empty for `max`
+   * and for the model's own: the merged settings then fall back to the settings
+   * file's level, which is no word on the session. A level that leaves the
+   * layer is told as max, the pick a person sets by hand that the layer cannot
+   * hold; the turn that follows says the level it ran with.
+   *
+   * A terminal's `/effort` picker saves the level for the model in the user's
+   * settings instead, and a switch of model moves to that model's saved level:
+   * with the layer unchanged, the level the settings give is the session's.
+   */
+  function watchEffort() {
+    const host = bound
+
+    if (!host || (columnsOf.size === 0 && isOnSurface)) {
+      return
+    }
+
+    void Promise.all([host.settings('flag'), host.settings(), host.model()])
+      .then(([flag, settings, model]) => {
+        const level = effortLevelOf(flag)
+        const effective = effortOf(settings, flag, model)
+
+        if (level !== flagEffort) {
+          flagEffort = level
+          effectiveEffort = effective
+          told = { ...told, effort: level ?? HIDDEN_PICK }
+          request()
+        } else if (effective !== effectiveEffort) {
+          effectiveEffort = effective
+          told = { ...told, effort: effective }
+          request()
+        }
+      })
+      .catch(() => undefined)
+  }
+
   on('session.start', async ($, e, next) => {
     bound = {
       root: $.plugin.root,
@@ -242,7 +300,8 @@ export const register: Register = (on, options) => {
       version: async () => $.session.version(),
       usage: () => $.session.usage(),
       surfaces: () => $.session.surfaces(),
-      settings: () => $.settings.read(),
+      settings: source =>
+        source === undefined ? $.settings.read() : $.settings.read({ source }),
       exists: path => $.fs.exists(path),
       readFile: path => $.fs.read(path),
       writeFile: (path, text) => $.fs.write(path, text),
@@ -253,13 +312,19 @@ export const register: Register = (on, options) => {
 
     isOnSurface ||= e.surface !== null
 
-    isTerminalFree = await $.settings.read().then(
-      settings => !hasOwnStatusLine(settings),
-      () => false,
-    )
+    const settings = await $.settings.read().catch(() => undefined)
+    const flag = await $.settings.read({ source: 'flag' }).catch(() => undefined)
+
+    isTerminalFree = settings !== undefined && !hasOwnStatusLine(settings)
+    flagEffort = flag && effortLevelOf(flag)
+    effectiveEffort =
+      settings && effortOf(settings, flag ?? {}, await $.session.model().catch(() => ''))
 
     ticking?.cancel()
     ticking = refreshMs === undefined ? null : bound.every(refreshMs, request)
+
+    watching?.cancel()
+    watching = bound.every(SETTINGS_WATCH_MS, watchEffort)
 
     // The band does not depend on the command: a name already taken costs
     // the command alone
@@ -372,6 +437,35 @@ export const register: Register = (on, options) => {
     request()
 
     return next(e)
+  })
+
+  // The terminal's status line command runs again once `/effort` has printed
+  // its answer, and shows the level it set: no event of a turn says it first
+  on('command.run', { command: 'effort' }, async ($, e, next) => {
+    const answered = await next(e)
+    const said = effortSaidBy(answered.text ?? '')
+
+    if (said !== undefined) {
+      told = { ...told, effort: said ?? undefined }
+      request()
+    }
+
+    return answered
+  })
+
+  // A turn's first request names the effort it is sent with: the one place a
+  // level the settings cannot hold (max) is said before the turn has ended
+  on('turn.step', async function* ($, e, next) {
+    if (
+      e.agentId === undefined &&
+      typeof e.effort === 'string' &&
+      e.effort !== told.effort
+    ) {
+      told = { ...told, effort: e.effort }
+      request()
+    }
+
+    return yield* next(e)
   })
 
   on('classic.UserPromptSubmit', ($, e, next) => {

@@ -57,6 +57,13 @@ const MODEL_SWITCH = {
   pricing: 'catalog',
 } as const
 
+/** What the engine's `/effort` prints once it has set a level, hands back, or refuses. */
+const EFFORT_SET =
+  'Set effort level to max (this session only): Maximum capability with deepest reasoning'
+const EFFORT_AUTO = 'Effort level set to auto (this session only)'
+const EFFORT_USAGE =
+  'Usage: /effort <low|medium|high|xhigh|max|auto|ultracode [on|off]>'
+
 /** A line whose first words the engine wrapped in an OSC 8 hyperlink. */
 const LINKED_OUTPUT =
   '\x1b]8;;https://github.com/o/r/pull/7\x1b\\\x1b[32mPR #7\x1b]8;;\x1b\\ open\n'
@@ -200,6 +207,219 @@ describe('register', () => {
       transcript_path: TRANSCRIPT,
       effort: { level: 'xhigh' },
     })
+  })
+
+  test('shows the effort /effort set, in a run of its own and before any turn has said it', async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    on('command.run', { command: 'effort' }, () => ({ text: EFFORT_SET }))
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.command.run({ ...COMMAND, command: 'effort', args: 'max' })
+    await clock.settle()
+
+    expect(runs).toHaveLength(2)
+    expect(Object.keys(stdinOf(runs, 0) as object)).not.toContain('effort')
+    expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'max' } })
+  })
+
+  test('/effort auto hands the effort back: an earlier level is no longer passed on', async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    on('command.run', { command: 'effort' }, () => ({ text: EFFORT_AUTO }))
+
+    await $.session.start(START)
+    await $.classic.Stop({ stop_hook_active: false, effort: { level: 'xhigh' } })
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.command.run({ ...COMMAND, command: 'effort', args: 'auto' })
+    await clock.settle()
+
+    expect(Object.keys(stdinOf(runs, runs.length - 1) as object)).not.toContain('effort')
+  })
+
+  test('an /effort that set no level runs nothing and keeps the effort told before', async ($, on) => {
+    const { clock, runs } = worldOf(on)
+
+    on('command.run', { command: 'effort' }, () => ({ text: EFFORT_USAGE }))
+
+    await $.session.start(START)
+    await $.classic.Stop({ stop_hook_active: false, effort: { level: 'xhigh' } })
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.command.run({ ...COMMAND, command: 'effort', args: '' })
+    await clock.settle()
+
+    expect(runs).toHaveLength(1)
+    expect(stdinOf(runs, 0)).toMatchObject({ effort: { level: 'xhigh' } })
+  })
+
+  test('passes on the effort of the settings until a turn says its own', async ($, on) => {
+    const { clock, runs } = worldOf(on, { settings: { effortLevel: 'medium' } })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.classic.Stop({ stop_hook_active: false, effort: { level: 'xhigh' } })
+    await $.turn.complete(TURN)
+    await clock.settle()
+
+    expect(runs).toHaveLength(2)
+    expect(stdinOf(runs, 0)).toMatchObject({ effort: { level: 'medium' } })
+    expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'xhigh' } })
+  })
+
+  test('runs the lines again with the new level when a host puts a level in the flag layer', async ($, on) => {
+    const flagSettings: Record<string, unknown> = { effortLevel: 'medium' }
+    const { clock, runs } = worldOf(on, { settings: { effortLevel: 'high' }, flagSettings })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.classic.Stop({ stop_hook_active: false, effort: { level: 'medium' } })
+
+    flagSettings.effortLevel = 'low'
+    await clock.advance(2_000)
+    await clock.settle()
+
+    expect(runs).toHaveLength(2)
+    expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'low' } })
+  })
+
+  test('a level that leaves the flag layer is a pick the settings cannot hold: max, not the level of the file', async ($, on) => {
+    const flagSettings: Record<string, unknown> = { effortLevel: 'low' }
+    const { clock, runs } = worldOf(on, { settings: { effortLevel: 'high' }, flagSettings })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+
+    delete flagSettings.effortLevel
+    await clock.advance(2_000)
+    await clock.settle()
+
+    expect(runs).toHaveLength(2)
+    expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'max' } })
+  })
+
+  test("passes on the effort saved for the session's model, not the top-level one", async ($, on) => {
+    const { clock, runs } = worldOf(on, {
+      settings: {
+        effortLevel: 'high',
+        modelSettings: { 'claude-opus-5-5': { effortLevel: 'medium' } },
+      },
+    })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+
+    expect(stdinOf(runs)).toMatchObject({ effort: { level: 'medium' } })
+  })
+
+  test('runs the lines again when the effort saved for the model changes', async ($, on) => {
+    const saved = { 'claude-opus-5-5': { effortLevel: 'medium' } }
+    const settings = { effortLevel: 'high', modelSettings: saved }
+    const { clock, runs } = worldOf(on, { settings })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await $.classic.Stop({ stop_hook_active: false, effort: { level: 'medium' } })
+
+    saved['claude-opus-5-5'].effortLevel = 'xhigh'
+    await clock.advance(2_000)
+    await clock.settle()
+
+    expect(runs).toHaveLength(2)
+    expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'xhigh' } })
+  })
+
+  test('an effort the flag layer never held runs nothing', async ($, on) => {
+    const { clock, runs } = worldOf(on, { settings: { effortLevel: 'high' } })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await clock.advance(10_000)
+
+    expect(runs).toHaveLength(1)
+  })
+
+  test("shows the effort a turn's first request carries when the settings cannot hold it, at the turn's start", async ($, on) => {
+    const { clock, runs } = worldOf(on, { settings: { effortLevel: 'high' } })
+
+    on('turn.step', async function* (_$, e) {
+      return {
+        turnId: e.turnId,
+        index: e.index,
+        answer: '',
+        toolUses: [],
+        stopReason: null,
+        usage: null,
+      }
+    })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+
+    const step = $.turn.step({
+      turnId: 'turn-1',
+      index: 0,
+      model: 'claude-opus-5-5',
+      effort: 'max',
+      messageCount: 1,
+    })
+
+    for await (const chunk of step) {
+      expect(chunk).toBeDefined()
+    }
+
+    await step.result
+    await clock.settle()
+
+    expect(runs).toHaveLength(2)
+    expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'max' } })
+  })
+
+  test("a subagent's request names its own effort, which is not the session's", async ($, on) => {
+    const { clock, runs } = worldOf(on, { settings: { effortLevel: 'high' } })
+
+    on('turn.step', async function* (_$, e) {
+      return {
+        turnId: e.turnId,
+        index: e.index,
+        answer: '',
+        toolUses: [],
+        stopReason: null,
+        usage: null,
+      }
+    })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+
+    const step = $.turn.step({
+      turnId: 'turn-1',
+      index: 0,
+      model: 'claude-haiku-5-5',
+      effort: 'low',
+      messageCount: 1,
+      agentId: 'agent-1',
+    })
+
+    for await (const chunk of step) {
+      expect(chunk).toBeDefined()
+    }
+
+    await step.result
+    await clock.settle()
+
+    expect(runs).toHaveLength(1)
   })
 
   test("finds the transcript by the session's id when no event named it", async ($, on) => {

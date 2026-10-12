@@ -71,6 +71,7 @@ function hostOf({ command = 'ccstatusline', found, answer, answered, change }: M
 
 const OLDER = { kind: 'global', manager: 'npm', version: '2.2.20' }
 const NEWER = { kind: 'runner', runner: 'npx', version: '2.3.0' }
+const MISSING = { kind: 'global', isMissing: true }
 
 describe('terminal', () => {
   test('a version before the settings format, or after the engine, is a mismatch; one between is not', async () => {
@@ -80,14 +81,57 @@ describe('terminal', () => {
       ),
     )
 
-    expect(found.map(mismatch => mismatch && [mismatch.version, mismatch.isNewer])).toEqual([
-      ['2.2.28', false],
-      ['2.1.40', false],
+    expect(found).toEqual([
+      { version: '2.2.28', recommended: '2.2.32', isNewer: false },
+      { version: '2.1.40', recommended: '2.2.32', isNewer: false },
       undefined,
       undefined,
-      ['2.2.33', true],
-      ['3.0.0', true],
+      { version: '2.2.33', recommended: '2.2.32', isNewer: true },
+      { version: '3.0.0', recommended: '2.2.32', isNewer: true },
     ])
+  })
+
+  test('a global command that is no longer installed is a mismatch', async () => {
+    expect(await mismatchOf(hostOf({ found: MISSING }).host, 'node')).toEqual({
+      isMissing: true,
+      recommended: '2.2.32',
+    })
+  })
+
+  test('one that is gone can be installed again, have its setting removed, or be left', async () => {
+    const { host, asked } = hostOf({ found: MISSING, answer: 'Not now' })
+
+    await alignTerminal(host, 'node', false)
+
+    expect(asked).toEqual([
+      [
+        expect.stringMatching(/^Your terminal's status line runs ccstatusline, which is no longer installed/),
+        { header: 'Terminal', options: ['Install 2.2.32', 'Remove the setting', 'Not now'] },
+      ],
+    ])
+  })
+
+  test('one that is gone is installed at the version of the engine, or uninstalled for what is left of it', async () => {
+    const ran = await Promise.all(
+      ['Install 2.2.32', 'Remove the setting'].map(async answer => {
+        const { host, runs } = hostOf({ found: MISSING, answer })
+
+        await alignTerminal(host, 'node', false)
+
+        return runs.at(-1)?.slice(2)
+      }),
+    )
+
+    expect(ran).toEqual([['upgrade', '2.2.32'], ['uninstall']])
+  })
+
+  test('one that is gone and was answered about is not asked about again', async () => {
+    const { host, asked, store } = hostOf({ found: MISSING, answer: 'Not now' })
+
+    await alignTerminal(host, 'node', false)
+    await alignTerminal(host, 'node', false)
+
+    expect([asked.length, store.get('terminalAnswered')]).toEqual([1, 'missing beside 2.2.32'])
   })
 
   test('looks with the script on the runtime the engine runs on', async () => {

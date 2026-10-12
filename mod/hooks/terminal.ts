@@ -23,17 +23,28 @@ const CHANGE_TIMEOUT_MS = 200_000
 const ANSWERED_KEY = 'terminalAnswered'
 
 const UNINSTALL = 'Uninstall it'
+const REMOVE_SETTING = 'Remove the setting'
 const NOT_NOW = 'Not now'
 
-/** A terminal's ccstatusline of a version that does not share settings with the mod's engine. */
-export type Mismatch = {
-  /** The version the terminal's `statusLine` runs. */
-  version: string
-  /** The version of the mod's engine, which is the one to be at. */
-  recommended: string
-  /** Newer than the engine; older than what shares its settings otherwise. */
-  isNewer: boolean
-}
+/**
+ * A terminal's ccstatusline that does not go with the mod's engine: of a
+ * version that does not share settings with it, or no longer installed while
+ * the `statusLine` still runs it.
+ */
+export type Mismatch =
+  | {
+      /** The version the terminal's `statusLine` runs. */
+      version: string
+      /** The version of the mod's engine, which is the one to be at. */
+      recommended: string
+      /** Newer than the engine; older than what shares its settings otherwise. */
+      isNewer: boolean
+    }
+  | {
+      /** The command is gone: the terminal draws no status line, nor does the mod there. */
+      isMissing: true
+      recommended: string
+    }
 
 /** What became of a mismatch the person chose to end. */
 export type Aligned = {
@@ -78,7 +89,8 @@ async function ownCommandOf(host: Host) {
 /**
  * Looks for a terminal's ccstatusline whose version is out of the range the
  * mod's engine shares a settings file with: from the first release of the
- * engine's settings format to the engine's own version.
+ * engine's settings format to the engine's own version. One that was removed
+ * while the `statusLine` still runs it is a mismatch too.
  *
  * Never rejects, and runs nothing where the settings run no ccstatusline: a
  * look that could not be made finds no mismatch.
@@ -99,7 +111,11 @@ export async function mismatchOf(host: Host, runtime: string): Promise<Mismatch 
       timeoutMs: DETECT_TIMEOUT_MS,
     })
 
-    const { version } = JSON.parse(ran.stdout) as { version?: unknown }
+    const { version, isMissing } = JSON.parse(ran.stdout) as { version?: unknown; isMissing?: unknown }
+
+    if (ran.exitCode === 0 && isMissing === true) {
+      return { isMissing, recommended }
+    }
 
     if (ran.exitCode !== 0 || typeof version !== 'string') {
       return undefined
@@ -119,8 +135,25 @@ type Dialog = {
   changes: Readonly<Record<string, readonly string[]>>
 }
 
-/** The dialog a mismatch is ended with: a newer one can only be uninstalled. */
-function dialogOf({ version, recommended, isNewer }: Mismatch): Dialog {
+/** What the store keeps of a mismatch the person answered about. */
+const answeredOf = (mismatch: Mismatch) =>
+  `${'isMissing' in mismatch ? 'missing' : mismatch.version} beside ${mismatch.recommended}`
+
+/**
+ * The dialog a mismatch is ended with: a newer one can only be uninstalled,
+ * and one that is gone is installed again or has its setting removed.
+ */
+function dialogOf(mismatch: Mismatch): Dialog {
+  const { recommended } = mismatch
+
+  if ('isMissing' in mismatch) {
+    return {
+      question: `Your terminal's status line runs ccstatusline, which is no longer installed, so the terminal shows no status line. Install ccstatusline ${recommended}, or remove the setting and let ccstatusline desktop draw in the terminal too?`,
+      changes: { [`Install ${recommended}`]: ['upgrade', recommended], [REMOVE_SETTING]: ['uninstall'] },
+    }
+  }
+
+  const { version, isNewer } = mismatch
   const uninstall = { [UNINSTALL]: ['uninstall'] }
 
   return isNewer
@@ -137,7 +170,8 @@ function dialogOf({ version, recommended, isNewer }: Mismatch): Dialog {
 /**
  * Asks what to do about a terminal's ccstatusline of a version out of range,
  * and does it: upgrades it to the engine's version, or uninstalls it. A newer
- * one can only be uninstalled.
+ * one can only be uninstalled; one that is gone is installed again, or the
+ * setting that still runs it is removed.
  *
  * Never rejects: a dialog nobody answered changes nothing, and a change that
  * failed is answered in words.
@@ -159,7 +193,7 @@ export async function alignTerminal(
     return undefined
   }
 
-  const answered = `${mismatch.version} beside ${mismatch.recommended}`
+  const answered = answeredOf(mismatch)
 
   if (!isRepeated && (await host.recall(ANSWERED_KEY).catch(() => undefined)) === answered) {
     return undefined

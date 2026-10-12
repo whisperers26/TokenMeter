@@ -113,12 +113,26 @@ export async function mismatchOf(host: Host, runtime: string): Promise<Mismatch 
   }
 }
 
-const upgradeTo = (version: string) => `Upgrade to ${version}`
+/** What a dialog asks, and what the script is told for each answer that changes something. */
+type Dialog = {
+  question: string
+  changes: Readonly<Record<string, readonly string[]>>
+}
 
-const questionOf = ({ version, recommended, isNewer }: Mismatch) =>
-  isNewer
-    ? `Your terminal runs ccstatusline ${version}, newer than the ${recommended} ccstatusline desktop carries. They share one settings file, and a layout saved from here can lose what the newer one added. Uninstall it and let ccstatusline desktop draw in the terminal too?`
-    : `Your terminal runs ccstatusline ${version}, older than ccstatusline desktop shares a settings file with (${OLDEST_SHARING} to ${recommended}): it shows what the layout says to hide. Upgrade it to ${recommended}, or uninstall it and let ccstatusline desktop draw in the terminal too?`
+/** The dialog a mismatch is ended with: a newer one can only be uninstalled. */
+function dialogOf({ version, recommended, isNewer }: Mismatch): Dialog {
+  const uninstall = { [UNINSTALL]: ['uninstall'] }
+
+  return isNewer
+    ? {
+        question: `Your terminal runs ccstatusline ${version}, newer than the ${recommended} ccstatusline desktop carries. They share one settings file, and a layout saved from here can lose what the newer one added. Uninstall it and let ccstatusline desktop draw in the terminal too?`,
+        changes: uninstall,
+      }
+    : {
+        question: `Your terminal runs ccstatusline ${version}, older than ccstatusline desktop shares a settings file with (${OLDEST_SHARING} to ${recommended}): it shows what the layout says to hide. Upgrade it to ${recommended}, or uninstall it and let ccstatusline desktop draw in the terminal too?`,
+        changes: { [`Upgrade to ${recommended}`]: ['upgrade', recommended], ...uninstall },
+      }
+}
 
 /**
  * Asks what to do about a terminal's ccstatusline of a version out of range,
@@ -151,14 +165,11 @@ export async function alignTerminal(
     return undefined
   }
 
-  const upgrade = upgradeTo(mismatch.recommended)
+  const { question, changes } = dialogOf(mismatch)
 
   // Dismissed, or asked where there is nobody to answer: asked again next time
   const answer = await host
-    .ask(questionOf(mismatch), {
-      header: 'Terminal',
-      options: mismatch.isNewer ? [UNINSTALL, NOT_NOW] : [upgrade, UNINSTALL, NOT_NOW],
-    })
+    .ask(question, { header: 'Terminal', options: [...Object.keys(changes), NOT_NOW] })
     .catch(() => undefined)
 
   if (answer === undefined) {
@@ -167,12 +178,7 @@ export async function alignTerminal(
 
   await host.remember(ANSWERED_KEY, answered).catch(() => undefined)
 
-  const change =
-    answer === UNINSTALL
-      ? ['uninstall']
-      : answer === upgrade && !mismatch.isNewer
-        ? ['upgrade', mismatch.recommended]
-        : undefined
+  const change = Object.hasOwn(changes, answer) ? changes[answer] : undefined
 
   if (change === undefined) {
     return undefined

@@ -2,7 +2,7 @@
   <id>io.github.whisperers26.tokenmeter</id>
   <name>Token Meter</name>
   <version>${version}</version>
-  <vendor url="https://github.com/whisperers26/TokenMeter">whisperers26</vendor>
+  <vendor url="https://github.com/whisperers26/ccstatusline-desktop">whisperers26</vendor>
   <description><![CDATA[
     Your <a href="https://github.com/sirmalloc/ccstatusline">ccstatusline</a> status line in the JetBrains AI
     Assistant chat: the lines the Token Meter mod of Claude Code runs for a chat's Claude session, drawn above

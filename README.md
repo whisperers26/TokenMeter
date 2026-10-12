@@ -264,6 +264,7 @@ The plugin also drops snapshots no session has written for a week.
 
 - The lines sit above the prompt, not under it: that is where Claude Code lets a mod draw.
 - Claude Code hands a mod a little less than it hands a `statusLine` command. Vim mode, worktree details, lines added and removed, and API duration are missing, so a widget built only on one of those shows its empty state.
+- The thinking effort follows the picker or `/effort` within a couple of seconds, with one exception: Claude Code gives a mod no way to read `max` (it is kept nowhere but in the session). A `max` picked before the first level the band could see shows at the start of the next prompt, not before. Typing `/effort max` shows at once.
 - Powerline separators need a font that has their glyphs. The desktop app draws them only if its code font does.
 - The band is drawn in the desktop app and in terminals. Claude Code does not offer it to the VS Code extension or the mobile app yet.
 - In a JetBrains IDE the lines are as old as the mod's last run, not redrawn on demand, and the engine's colours are a terminal's: one that would be lost on the IDE's theme is moved toward the theme's own text colour until it reads.

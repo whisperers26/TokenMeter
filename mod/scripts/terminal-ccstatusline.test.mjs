@@ -12,6 +12,8 @@ import {
   installOf,
   managerOf,
   upgrade,
+  widen,
+  widened,
   withSpec,
   writtenLike,
 } from './terminal-ccstatusline.mjs'
@@ -86,6 +88,9 @@ test('a status line is ccstatusline as a global command or through a runner, and
       'bash -c "npx ccstatusline@latest | tee log"',
       'npx -y other-statusline',
       '',
+      'CCSTATUSLINE_WIDTH=$COLUMNS ccstatusline',
+      'A=1 B=2 bunx -y ccstatusline@2.2.20',
+      'CCSTATUSLINE_WIDTH=$COLUMNS',
     ].map(installOf),
     [
       { kind: 'global' },
@@ -98,8 +103,83 @@ test('a status line is ccstatusline as a global command or through a runner, and
       undefined,
       undefined,
       undefined,
+      { kind: 'global' },
+      { kind: 'runner', runner: 'bunx', spec: '2.2.20' },
+      undefined,
     ],
   )
+})
+
+test("a command is handed the terminal's width once, before its first word", () => {
+  assert.deepEqual(
+    ['ccstatusline', ' npx -y ccstatusline@latest', 'CCSTATUSLINE_WIDTH=120 ccstatusline'].map(widened),
+    [
+      'CCSTATUSLINE_WIDTH=$COLUMNS ccstatusline',
+      'CCSTATUSLINE_WIDTH=$COLUMNS npx -y ccstatusline@latest',
+      'CCSTATUSLINE_WIDTH=120 ccstatusline',
+    ],
+  )
+})
+
+test("on Windows, the terminal's ccstatusline is handed the width, its hooks and the rest of the file kept", () => {
+  const hooks = { Stop: [{ _tag: 'ccstatusline-managed', hooks: [{ type: 'command', command: 'ccstatusline --hook' }] }] }
+  const before = { model: 'opus', statusLine: { type: 'command', command: 'ccstatusline', padding: 0, refreshInterval: 10 }, hooks }
+  const machine = machineOf({ settings: before })
+
+  machine.world.platform = 'win32'
+
+  try {
+    const said = widen(machine.world)
+
+    assert.deepEqual(
+      [machine.written(), JSON.parse(machine.backup()), said.length, widen(machine.world)],
+      [
+        { ...before, statusLine: { ...before.statusLine, command: 'CCSTATUSLINE_WIDTH=$COLUMNS ccstatusline' } },
+        before,
+        1,
+        [],
+      ],
+    )
+  } finally {
+    machine.drop()
+  }
+})
+
+test("no width is handed off Windows, over a width the person set, to another tool's status line, or to none", () => {
+  const elsewhere = machineOf({ settings: statusLineOf('ccstatusline') })
+  const set = machineOf({ settings: statusLineOf('ccstatusline') })
+  const other = machineOf({ settings: statusLineOf('~/bin/statusline.sh') })
+  const none = machineOf()
+
+  for (const machine of [set, other, none]) {
+    machine.world.platform = 'win32'
+  }
+
+  set.world.env.CCSTATUSLINE_WIDTH = '160'
+
+  try {
+    assert.deepEqual(
+      [elsewhere, set, other, none].map(({ world }) => widen(world)),
+      [[], [], [], []],
+    )
+    assert.deepEqual(set.written(), statusLineOf('ccstatusline'))
+  } finally {
+    ;[elsewhere, set, other, none].forEach(machine => machine.drop())
+  }
+})
+
+test('on Windows, an install has the status line handed the width from the start', () => {
+  const machine = machineOf({ settings: {} })
+
+  machine.world.platform = 'win32'
+
+  try {
+    install(machine.world, '2.2.32')
+
+    assert.equal(machine.written().statusLine.command, 'CCSTATUSLINE_WIDTH=$COLUMNS ccstatusline')
+  } finally {
+    machine.drop()
+  }
 })
 
 test("a runner's command is made to name a version, its other words kept", () => {

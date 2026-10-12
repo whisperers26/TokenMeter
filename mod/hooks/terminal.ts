@@ -292,6 +292,32 @@ export async function alignTerminal(host: Host, runtime: string, asking: Asking)
   return { aligned, standing: mismatch }
 }
 
+/**
+ * Has the terminal's ccstatusline handed the terminal's width where it is not
+ * yet: on Windows, where ccstatusline finds none by itself, and a flex
+ * separator then pushes nothing to the right. The script tells whether there
+ * is anything to do.
+ *
+ * Never rejects: a run that failed changes nothing and says nothing.
+ *
+ * @param host the calls on Claude Code the run is made with
+ * @param runtime the command the script is run with: `node`, `bun`, or a path to one
+ * @returns what was changed, in the script's words; undefined where nothing was
+ */
+export async function widenTerminal(host: Host, runtime: string): Promise<string | undefined> {
+  try {
+    const ran = await host.run([runtime, pathIn(host.root, ...SCRIPT), 'widen'], {
+      timeoutMs: DETECT_TIMEOUT_MS,
+    })
+
+    const said = ran.stdout.trim()
+
+    return ran.exitCode === 0 && said !== '' ? said : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /** Has the script make a change, and says what it said. Never rejects. */
 async function changed(host: Host, runtime: string, change: readonly string[]): Promise<Aligned> {
   try {

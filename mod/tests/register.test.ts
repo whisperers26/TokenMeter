@@ -1389,6 +1389,19 @@ describe('register', () => {
     expect([asked, terminalRuns, logged]).toEqual([[], [['install', '2.2.32']], [INSTALLED]])
   })
 
+  test("at its first draw, says so when the terminal's ccstatusline was handed the terminal's width", async ($, on) => {
+    const { clock, logged } = worldOf(on, {
+      settings: OWN_STATUS_LINE,
+      widen: () => printed("The terminal's status line is now handed the terminal's width.\n"),
+    })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+
+    expect(logged).toEqual(["The terminal's status line is now handed the terminal's width."])
+  })
+
   test("looks at no terminal where the settings run another tool's status line", async ($, on) => {
     const { clock, terminalRuns } = worldOf(on, {
       settings: { statusLine: { type: 'command', command: '~/bin/statusline.sh' } },

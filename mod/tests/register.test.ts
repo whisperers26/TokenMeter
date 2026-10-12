@@ -5,12 +5,12 @@ import { BAND } from './fixtures/band'
 import { ENGINE_OUTPUT } from './fixtures/engine-output'
 import { rowsOf } from './fixtures/rows-of'
 import { exited, isLeftAlone, printed, worldOf } from './fixtures/world'
-import type { World, WorldOptions } from './fixtures/world'
+import type { World } from './fixtures/world'
 
 /** A session the desktop app hosts: no terminal, a person at the prompt. */
 const START = { surface: null, isInteractive: true, cwd: '/work/app' } as const
 
-/** A session under a terminal that runs no status line of its own. */
+/** A session under a terminal. */
 const TERMINAL = { ...START, surface: 'terminal' } as const
 
 /** A session an SDK host runs for an IDE: no surface, nobody at the prompt. */
@@ -150,14 +150,12 @@ describe('register', () => {
   test('a band drawn before the session started is drawn again once it has', async ($, on) => {
     const { clock } = worldOf(on)
 
-    for (const surface of ['terminal', 'desktop'] as const) {
-      const ui = await $.ui.mount({ ...BAND, surface })
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
 
-      await $.session.start({ ...START, surface: 'terminal' })
-      await clock.settle()
+    await $.session.start(START)
+    await clock.settle()
 
-      expect(rowsOf(await ui.drawn())).toHaveLength(2)
-    }
+    expect(rowsOf(await ui.drawn())).toHaveLength(2)
   })
 
   test("runs the engine that ships in the plugin's own folder with node", async ($, on) => {
@@ -472,10 +470,10 @@ describe('register', () => {
     expect([runs, isLeftAlone(await ui.drawn())]).toEqual([[], true])
   })
 
-  test('stays quiet on a terminal that has a statusLine of its own', async ($, on) => {
+  test("leaves the band of a terminal alone: its status line is ccstatusline's own", async ($, on) => {
     const { clock, runs } = worldOf(on, { settings: OWN_STATUS_LINE })
 
-    await $.session.start({ ...START, surface: 'terminal' })
+    await $.session.start(TERMINAL)
 
     const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
 
@@ -484,16 +482,20 @@ describe('register', () => {
     expect([runs, isLeftAlone(await ui.drawn())]).toEqual([[], true])
   })
 
-  test('draws on a terminal that has no statusLine', async ($, on) => {
-    const { clock } = worldOf(on)
+  test('leaves the band of a terminal alone where it runs no status line yet, and installs ccstatusline there', async ($, on) => {
+    const { clock, runs, terminalRuns } = worldOf(on)
 
-    await $.session.start({ ...START, surface: 'terminal' })
+    await $.session.start(TERMINAL)
 
     const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
 
     await clock.settle()
 
-    expect(rowsOf(await ui.drawn())).toHaveLength(2)
+    expect([runs, terminalRuns, isLeftAlone(await ui.drawn())]).toEqual([
+      [],
+      [['install', '2.2.32']],
+      true,
+    ])
   })
 
   test("draws on desktop whatever the terminal's statusLine", async ($, on) => {
@@ -506,45 +508,6 @@ describe('register', () => {
     await clock.settle()
 
     expect(rowsOf(await ui.drawn())).toHaveLength(2)
-  })
-
-  test("tells the engine the band's width plus its flex reserve", async ($, on) => {
-    const { clock, runs, reads } = worldOf(on, {
-      engineSettings: JSON.stringify({ flexMode: 'full-minus-40' }),
-    })
-
-    await $.session.start(TERMINAL)
-    await $.ui.mount({ ...BAND, surface: 'terminal' })
-    await clock.settle()
-
-    expect([reads, runs.map(widthOf)]).toEqual([
-      ['/home/me/.config/ccstatusline/settings.json'],
-      ['140'],
-    ])
-  })
-
-  test("reserves the engine's default when it has no settings file", async ($, on) => {
-    const { clock, runs } = worldOf(on)
-
-    await $.session.start(TERMINAL)
-    await $.ui.mount({ ...BAND, surface: 'terminal' })
-    await clock.settle()
-
-    expect(runs.map(widthOf)).toEqual(['106'])
-  })
-
-  test("runs the engine again when the band's width changes", async ($, on) => {
-    const { clock, runs } = worldOf(on)
-
-    await $.session.start(TERMINAL)
-
-    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-
-    await clock.settle()
-    await ui.redraw({ ...BAND.props, bodyColumns: 80 })
-    await clock.settle()
-
-    expect(runs.map(widthOf)).toEqual(['106', '86'])
   })
 
   test('on desktop, where text is not laid out in cells, no line is cut or padded to a width', async ($, on) => {
@@ -624,20 +587,6 @@ describe('register', () => {
     expect(runs).toHaveLength(1)
   })
 
-  test('a band not yet measured gets the lines at their full width', async ($, on) => {
-    const { clock, runs } = worldOf(on)
-
-    await $.session.start(TERMINAL)
-    await $.ui.mount({
-      ...BAND,
-      surface: 'terminal',
-      props: { ...BAND.props, bodyColumns: 0 },
-    })
-    await clock.settle()
-
-    expect(runs.map(run => run.init?.env)).toEqual([undefined])
-  })
-
   test('says why in the band when the engine cannot be started', async ($, on) => {
     const { clock } = worldOf(on, { run: () => ({ deny: NO_NODE }) })
 
@@ -699,23 +648,21 @@ describe('register', () => {
     expect(isLeftAlone(await ui.drawn())).toBe(true)
   })
 
-  test('a hyperlink the engine wrote is drawn as a link on every surface', async ($, on) => {
+  test('a hyperlink the engine wrote is drawn as a link', async ($, on) => {
     const { clock } = worldOf(on, { run: () => printed(LINKED_OUTPUT) })
 
-    await $.session.start({ ...START, surface: 'terminal' })
+    await $.session.start(START)
 
-    for (const surface of ['terminal', 'desktop'] as const) {
-      const ui = await $.ui.mount({ ...BAND, surface })
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
 
-      await clock.settle()
+    await clock.settle()
 
-      expect(rowsOf(await ui.drawn())).toEqual([
-        [
-          { text: 'PR #7', color: '#00cd00', href: 'https://github.com/o/r/pull/7' },
-          { text: ' open', color: '#00cd00' },
-        ],
-      ])
-    }
+    expect(rowsOf(await ui.drawn())).toEqual([
+      [
+        { text: 'PR #7', color: '#00cd00', href: 'https://github.com/o/r/pull/7' },
+        { text: ' open', color: '#00cd00' },
+      ],
+    ])
   })
 
   test('runs the engine again when a turn completes', async ($, on) => {
@@ -1222,13 +1169,13 @@ describe('register', () => {
       run: () => (isBroken ? { deny: NO_NODE } : printed(ENGINE_OUTPUT)),
     })
 
-    await $.session.start(TERMINAL)
+    await $.session.start(START)
 
-    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
 
     await clock.settle()
     isBroken = false
-    await ui.redraw({ ...BAND.props, bodyColumns: 80 })
+    await $.turn.complete(TURN)
     await clock.settle()
 
     expect(rowsOf(await ui.drawn())).toHaveLength(2)

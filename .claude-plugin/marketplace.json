@@ -14,10 +14,10 @@
         "source": "git-subdir",
         "url": "https://github.com/whisperers26/ccstatusline-desktop.git",
         "path": "mod",
-        "ref": "ccstatusline-desktop--v0.1.6"
+        "ref": "ccstatusline-desktop--v0.2.0"
       },
       "category": "productivity",
-      "version": "0.1.6"
+      "version": "0.2.0"
     }
   ]
 }

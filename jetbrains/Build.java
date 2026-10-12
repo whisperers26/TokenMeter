@@ -60,6 +60,7 @@ public final class Build {
     private static final String TESTS_RUN = "run";
 
     private static final Pattern VERSION = Pattern.compile("\"version\"\\s*:\\s*\"([^\"]+)\"");
+    private static final Pattern VENDOR = Pattern.compile("\"productVendor\"\\s*:\\s*\"([^\"]+)\"");
     private static final Pattern DATA_DIRECTORY = Pattern.compile("\"dataDirectoryName\"\\s*:\\s*\"([^\"]+)\"");
 
     private Build() {
@@ -212,25 +213,30 @@ public final class Build {
             throw failure("no product-info.json in " + ide + ": is it an IDE's home?");
         }
 
-        Matcher name = DATA_DIRECTORY.matcher(Files.readString(productInfo));
+        String info = Files.readString(productInfo);
+        Matcher name = DATA_DIRECTORY.matcher(info);
 
         if (!name.find()) {
             throw failure("no dataDirectoryName in " + productInfo);
         }
 
+        // An IDE keeps its folders under its vendor's name: Android Studio under Google's
+        Matcher named = VENDOR.matcher(info);
+        String vendor = named.find() ? named.group(1) : "JetBrains";
+
         String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
         Path home = Path.of(System.getProperty("user.home"));
 
         if (os.contains("win")) {
-            return Path.of(System.getenv("APPDATA")).resolve("JetBrains").resolve(name.group(1)).resolve("plugins");
+            return Path.of(System.getenv("APPDATA")).resolve(vendor).resolve(name.group(1)).resolve("plugins");
         }
 
         if (os.contains("mac")) {
-            return home.resolve("Library").resolve("Application Support").resolve("JetBrains")
+            return home.resolve("Library").resolve("Application Support").resolve(vendor)
                 .resolve(name.group(1)).resolve("plugins");
         }
 
-        return home.resolve(".local").resolve("share").resolve("JetBrains").resolve(name.group(1));
+        return home.resolve(".local").resolve("share").resolve(vendor).resolve(name.group(1));
     }
 
     private static Path aiAssistantIn(Path ide, Path plugins) {

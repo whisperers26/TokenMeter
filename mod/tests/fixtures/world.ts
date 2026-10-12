@@ -18,6 +18,12 @@ export type WorldOptions = {
   run?: (e: Args<'process.run'>) => Ran | Promise<Ran>
   /** Claude Code's settings, as `$.settings.read()` answers them. */
   settings?: Settings
+  /**
+   * The flag layer of Claude Code's settings, as `$.settings.read({ source:
+   * 'flag' })` answers it: where a host that sets the effort puts a level the
+   * persisted settings can hold. Left out, it is empty.
+   */
+  flagSettings?: Settings
   /** The engine's own settings file as text; left out, there is none. */
   engineSettings?: string
   /**
@@ -146,7 +152,10 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   )
   on('session.usage', () => ({ value: options.usage ?? USAGE }))
   on('session.surfaces', () => ({ value: options.surfaces ?? [] }))
-  on('settings.read', () => ({ value: options.settings ?? {} }))
+  on('settings.read', ($, e) => ({
+    value:
+      e.source === 'flag' ? (options.flagSettings ?? {}) : (options.settings ?? {}),
+  }))
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('turn.complete', () => ({ text: '' }))
   on('classic.SessionStart', () => ({}))

@@ -271,21 +271,48 @@ describe('register', () => {
     expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'xhigh' } })
   })
 
-  test('runs the lines again with the new level when the settings change the effort', async ($, on) => {
-    const settings: Record<string, unknown> = { effortLevel: 'high' }
-    const { clock, runs } = worldOf(on, { settings })
+  test('runs the lines again with the new level when a host puts a level in the flag layer', async ($, on) => {
+    const flagSettings: Record<string, unknown> = { effortLevel: 'medium' }
+    const { clock, runs } = worldOf(on, { settings: { effortLevel: 'high' }, flagSettings })
 
     await $.session.start(START)
     await $.ui.mount({ ...BAND, surface: 'desktop' })
     await clock.settle()
-    await $.classic.Stop({ stop_hook_active: false, effort: { level: 'high' } })
+    await $.classic.Stop({ stop_hook_active: false, effort: { level: 'medium' } })
 
-    settings.effortLevel = 'low'
+    flagSettings.effortLevel = 'low'
     await clock.advance(2_000)
     await clock.settle()
 
     expect(runs).toHaveLength(2)
     expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'low' } })
+  })
+
+  test('a level that leaves the flag layer is a pick the settings cannot hold: max, not the level of the file', async ($, on) => {
+    const flagSettings: Record<string, unknown> = { effortLevel: 'low' }
+    const { clock, runs } = worldOf(on, { settings: { effortLevel: 'high' }, flagSettings })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+
+    delete flagSettings.effortLevel
+    await clock.advance(2_000)
+    await clock.settle()
+
+    expect(runs).toHaveLength(2)
+    expect(stdinOf(runs, 1)).toMatchObject({ effort: { level: 'max' } })
+  })
+
+  test('an effort the flag layer never held runs nothing', async ($, on) => {
+    const { clock, runs } = worldOf(on, { settings: { effortLevel: 'high' } })
+
+    await $.session.start(START)
+    await $.ui.mount({ ...BAND, surface: 'desktop' })
+    await clock.settle()
+    await clock.advance(10_000)
+
+    expect(runs).toHaveLength(1)
   })
 
   test("shows the effort a turn's first request carries when the settings cannot hold it, at the turn's start", async ($, on) => {
@@ -358,17 +385,6 @@ describe('register', () => {
 
     await step.result
     await clock.settle()
-
-    expect(runs).toHaveLength(1)
-  })
-
-  test('a settings effort that did not change runs nothing', async ($, on) => {
-    const { clock, runs } = worldOf(on, { settings: { effortLevel: 'high' } })
-
-    await $.session.start(START)
-    await $.ui.mount({ ...BAND, surface: 'desktop' })
-    await clock.settle()
-    await clock.advance(10_000)
 
     expect(runs).toHaveLength(1)
   })

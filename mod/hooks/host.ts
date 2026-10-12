@@ -6,6 +6,7 @@ import type {
   SessionUsage,
   SessionVersion,
   Settings,
+  SettingsSource,
   Timer,
 } from 'claude-code'
 
@@ -42,7 +43,8 @@ export type Host = {
   usage: () => Promise<SessionUsage>
   /** Every surface the session draws on; none for one an SDK host runs. */
   surfaces: () => Promise<readonly RenderSurface[]>
-  settings: () => Promise<Settings>
+  /** The settings merged over every source, or the one source named. */
+  settings: (source?: SettingsSource) => Promise<Settings>
   exists: (path: string) => Promise<boolean>
   readFile: (path: string) => Promise<string>
   writeFile: (path: string, text: string) => Promise<void>

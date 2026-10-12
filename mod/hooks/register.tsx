@@ -29,10 +29,13 @@ const DEFAULT_REFRESH_SECONDS = 30
 const UNBOUNDED_COLUMNS = 1000
 
 /**
- * How often Claude Code's settings are looked at for a change of effort, in
+ * How often Claude Code's flag layer is looked at for a change of effort, in
  * milliseconds: a read in this process, and no run of the engine.
  */
 const SETTINGS_WATCH_MS = 2000
+
+/** The pick a level leaving the flag layer stands for: see `watchEffort`. */
+const HIDDEN_PICK = 'max'
 
 /** The shortest period the timer takes: each tick starts a process. */
 const MIN_REFRESH_SECONDS = 5
@@ -90,8 +93,8 @@ export const register: Register = (on, options) => {
   let isStale = false
   let told: Told = {}
 
-  /** The effort the settings named when last looked at. */
-  let settingsEffort: string | undefined
+  /** The level the flag layer held when last looked at: a host's pick. */
+  let flagEffort: string | undefined
 
   // A terminal that runs a status line of its own already shows these lines
   // under the prompt; until the settings say it runs none, it is left alone
@@ -233,9 +236,16 @@ export const register: Register = (on, options) => {
   }
 
   /**
-   * Looks at the effort the settings name, and asks for fresh lines when it is
-   * not the one last seen: a host that sets the effort says so nowhere else.
-   * An in-process read, not a run of the engine.
+   * Looks at the flag layer, where a host that sets the session's effort puts
+   * its pick, and asks for fresh lines when the level there is not the one
+   * last seen. An in-process read, not a run of the engine.
+   *
+   * The layer holds a level the persisted settings can hold (low to xhigh) and
+   * is empty for `max` and for the model's own: the merged settings then fall
+   * back to the settings file's level, which is no word on the session. A
+   * level that leaves the layer is told as max, the pick a person sets by
+   * hand that the layer cannot hold; the turn that follows says the level it
+   * ran with.
    */
   function watchEffort() {
     const host = bound
@@ -245,13 +255,13 @@ export const register: Register = (on, options) => {
     }
 
     void host
-      .settings()
-      .then(settings => {
-        const level = effortLevelOf(settings)
+      .settings('flag')
+      .then(flag => {
+        const level = effortLevelOf(flag)
 
-        if (level !== settingsEffort) {
-          settingsEffort = level
-          told = { ...told, effort: level }
+        if (level !== flagEffort) {
+          flagEffort = level
+          told = { ...told, effort: level ?? HIDDEN_PICK }
           request()
         }
       })
@@ -279,7 +289,8 @@ export const register: Register = (on, options) => {
       version: async () => $.session.version(),
       usage: () => $.session.usage(),
       surfaces: () => $.session.surfaces(),
-      settings: () => $.settings.read(),
+      settings: source =>
+        source === undefined ? $.settings.read() : $.settings.read({ source }),
       exists: path => $.fs.exists(path),
       readFile: path => $.fs.read(path),
       writeFile: (path, text) => $.fs.write(path, text),
@@ -291,9 +302,10 @@ export const register: Register = (on, options) => {
     isOnSurface ||= e.surface !== null
 
     const settings = await $.settings.read().catch(() => undefined)
+    const flag = await $.settings.read({ source: 'flag' }).catch(() => undefined)
 
     isTerminalFree = settings !== undefined && !hasOwnStatusLine(settings)
-    settingsEffort = settings && effortLevelOf(settings)
+    flagEffort = flag && effortLevelOf(flag)
 
     ticking?.cancel()
     ticking = refreshMs === undefined ? null : bound.every(refreshMs, request)

@@ -1,15 +1,13 @@
 #!/usr/bin/env node
-// Looks at the ccstatusline a terminal's `statusLine` runs, and changes it:
-// to another version, or out of the machine. Where a terminal runs no status
-// line, puts ccstatusline there.
+// Looks at the ccstatusline a terminal's `statusLine` runs, and makes it
+// another version. Where a terminal runs no status line, puts ccstatusline there.
 //
 //   node mod/scripts/terminal-ccstatusline.mjs detect            what runs, and its version, as JSON
 //   node mod/scripts/terminal-ccstatusline.mjs install 2.2.32    put that version where no status line runs
 //   node mod/scripts/terminal-ccstatusline.mjs upgrade 2.2.32    make it that version
-//   node mod/scripts/terminal-ccstatusline.mjs uninstall         take it out
 //
-// The mod runs it where a terminal's ccstatusline is of a version that does
-// not share a settings file with the mod's engine. Both read and write
+// The mod runs it where a terminal has no ccstatusline, or one of a version
+// that does not share a settings file with the mod's engine. Both read and write
 // ~/.config/ccstatusline/settings.json, which no command here touches.
 
 import { spawnSync } from 'node:child_process'
@@ -22,12 +20,6 @@ const PACKAGE = 'ccstatusline'
 
 /** What the settings file as it was is kept under, beside it. */
 const BACKUP_SUFFIX = '.before-ccstatusline-desktop'
-
-/** How ccstatusline marks the hooks it adds to Claude Code's settings. */
-const HOOK_TAG = 'ccstatusline-managed'
-
-/** A hook of ccstatusline's from before it marked them. */
-const HOOK_COMMAND = /ccstatusline.* --hook(?:\s|$)/
 
 /** A release's version, and nothing a shell would read as more. */
 const VERSION = /^\d+\.\d+\.\d+$/
@@ -105,58 +97,6 @@ export function withCommand(settings, command) {
       ),
     }),
   }
-}
-
-/** A hooks entry less what ccstatusline put in it; undefined when nothing is left. */
-function withoutManagedHooks(entry) {
-  if (entry?._tag === HOOK_TAG) {
-    return undefined
-  }
-
-  if (!Array.isArray(entry?.hooks)) {
-    return entry
-  }
-
-  const kept = entry.hooks.filter(hook => !HOOK_COMMAND.test(hook?.command ?? ''))
-
-  if (kept.length === entry.hooks.length) {
-    return entry
-  }
-
-  return kept.length === 0 ? undefined : { ...entry, hooks: kept }
-}
-
-/**
- * Claude Code's settings less ccstatusline: its `statusLine`, and the hooks it
- * added for its widgets. Every other key keeps its value and its place.
- *
- * @param settings the settings file, parsed
- * @returns the settings to write in its place
- */
-export function withoutCcstatusline(settings) {
-  const hooksLeft = Object.entries(settings.hooks ?? {}).flatMap(([event, entries]) => {
-    if (!Array.isArray(entries)) {
-      return [[event, entries]]
-    }
-
-    const kept = entries.map(withoutManagedHooks).filter(entry => entry !== undefined)
-
-    return kept.length === 0 ? [] : [[event, kept]]
-  })
-
-  return Object.fromEntries(
-    Object.entries(settings).flatMap(([key, value]) => {
-      if (key === 'statusLine') {
-        return []
-      }
-
-      if (key === 'hooks') {
-        return hooksLeft.length === 0 ? [] : [[key, Object.fromEntries(hooksLeft)]]
-      }
-
-      return [[key, value]]
-    }),
-  )
 }
 
 /** JSON as the file it replaces was written: its indent, and its last newline. */
@@ -420,40 +360,6 @@ export function install(world, version) {
   ]
 }
 
-/**
- * Takes ccstatusline out of the terminal: its `statusLine` and hooks out of
- * Claude Code's settings, and every global install off the machine.
- *
- * @returns what was done, one item a line
- * @throws where there was nothing to take out, or a step failed
- */
-export function uninstall(world) {
-  const done = []
-  const settings = settingsOf(world)
-  const command = commandOf(settings)
-
-  if (command !== undefined && installOf(command) !== undefined) {
-    keep(settings, withoutCcstatusline(settings.value))
-    done.push(`ccstatusline was taken out of \`${settings.path}\`; the file as it was is \`${settings.path}${BACKUP_SUFFIX}\`.`)
-  }
-
-  for (const { manager, version } of globalsOf(world)) {
-    // The settings are already changed: a package that stays is said, not thrown
-    try {
-      manage(world, manager === 'bun' ? `bun remove -g ${PACKAGE}` : `npm uninstall -g ${PACKAGE}`)
-      done.push(`The global ccstatusline ${version} was removed with ${manager}.`)
-    } catch (error) {
-      done.push(`The global ccstatusline ${version} was not removed: ${error.message}`)
-    }
-  }
-
-  if (done.length === 0) {
-    throw new Error('no ccstatusline was found to uninstall')
-  }
-
-  return [...done, 'Your layout is kept: ccstatusline desktop draws it, in the terminal too.']
-}
-
 /** This machine. */
 const here = () => ({
   env: process.env,
@@ -470,10 +376,8 @@ function main([action, version]) {
     console.log(install(here(), version).join('\n'))
   } else if (action === 'upgrade') {
     console.log(upgrade(here(), version).join('\n'))
-  } else if (action === 'uninstall') {
-    console.log(uninstall(here()).join('\n'))
   } else {
-    throw new Error('say what to do: detect, install <version>, upgrade <version> or uninstall')
+    throw new Error('say what to do: detect, install <version> or upgrade <version>')
   }
 }
 

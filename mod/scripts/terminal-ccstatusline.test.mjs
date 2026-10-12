@@ -11,9 +11,7 @@ import {
   install,
   installOf,
   managerOf,
-  uninstall,
   upgrade,
-  withoutCcstatusline,
   withSpec,
   writtenLike,
 } from './terminal-ccstatusline.mjs'
@@ -108,44 +106,6 @@ test("a runner's command is made to name a version, its other words kept", () =>
   assert.deepEqual(
     ['npx -y ccstatusline@latest', 'bunx ccstatusline --config "a b.json"'].map(command => withSpec(command, '2.2.32')),
     ['npx -y ccstatusline@2.2.32', 'bunx ccstatusline@2.2.32 --config "a b.json"'],
-  )
-})
-
-test('settings lose the status line and the hooks ccstatusline added, and nothing else', () => {
-  assert.deepEqual(
-    withoutCcstatusline({
-      model: 'opus',
-      ...statusLineOf('ccstatusline'),
-      hooks: {
-        PreToolUse: [
-          { _tag: 'ccstatusline-managed', matcher: 'Skill', hooks: [{ type: 'command', command: 'ccstatusline --hook' }] },
-          { matcher: 'Bash', hooks: [{ type: 'command', command: 'audit.sh' }] },
-        ],
-        UserPromptSubmit: [
-          { hooks: [{ type: 'command', command: 'npx ccstatusline@latest --hook' }, { type: 'command', command: 'log.sh' }] },
-        ],
-        Stop: [{ _tag: 'ccstatusline-managed', hooks: [{ type: 'command', command: 'ccstatusline --hook' }] }],
-      },
-      env: { A: '1' },
-    }),
-    {
-      model: 'opus',
-      hooks: {
-        PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'audit.sh' }] }],
-        UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'log.sh' }] }],
-      },
-      env: { A: '1' },
-    },
-  )
-})
-
-test('settings whose only hooks were ccstatusline keep no hooks key', () => {
-  assert.deepEqual(
-    withoutCcstatusline({
-      ...statusLineOf('ccstatusline'),
-      hooks: { Stop: [{ _tag: 'ccstatusline-managed', hooks: [] }] },
-    }),
-    {},
   )
 })
 
@@ -418,52 +378,5 @@ test('installs nothing that is not a version, over another status line, or besid
   } finally {
     other.drop()
     broken.drop()
-  }
-})
-
-test('uninstalls the status line and every global install, and keeps the file as it was', () => {
-  const before = { model: 'opus', ...statusLineOf('ccstatusline') }
-  const machine = machineOf({ settings: before, globals: { npm: '2.2.20', bun: '2.2.9' } })
-
-  try {
-    const said = uninstall(machine.world)
-
-    assert.deepEqual(
-      [machine.written(), JSON.parse(machine.backup()), machine.asked.slice(1), said.length],
-      [{ model: 'opus' }, before, ['npm uninstall -g ccstatusline', 'bun remove -g ccstatusline'], 4],
-    )
-  } finally {
-    machine.drop()
-  }
-})
-
-test('an uninstall whose package manager fails still takes the status line out, and says what stayed', () => {
-  const machine = machineOf({
-    settings: statusLineOf('ccstatusline'),
-    globals: { npm: '2.2.20' },
-    failing: ['npm uninstall -g ccstatusline'],
-  })
-
-  try {
-    const said = uninstall(machine.world)
-
-    assert.deepEqual(
-      [machine.written(), said[1]],
-      [{}, 'The global ccstatusline 2.2.20 was not removed: `npm uninstall -g ccstatusline` failed: npm error code EACCES'],
-    )
-  } finally {
-    machine.drop()
-  }
-})
-
-test('uninstalls nothing where there is no ccstatusline, and leaves another status line alone', () => {
-  const before = statusLineOf('~/bin/statusline.sh')
-  const machine = machineOf({ settings: before })
-
-  try {
-    assert.throws(() => uninstall(machine.world), /no ccstatusline was found/)
-    assert.deepEqual(machine.written(), before)
-  } finally {
-    machine.drop()
   }
 })

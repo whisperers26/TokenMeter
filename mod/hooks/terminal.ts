@@ -24,7 +24,12 @@ const ANSWERED_KEY = 'terminalAnswered'
 
 const UNINSTALL = 'Uninstall it'
 const REMOVE_SETTING = 'Remove the setting'
+const CONTINUE = 'Continue anyway'
 const NOT_NOW = 'Not now'
+
+/** What continuing past a version out of range costs, as the dialog ends its question. */
+const continuingCosts = (until: string) =>
+  `You can continue anyway: the band still draws, but /ccstatusline-desktop edit stays off until ${until}, and the layout is changed with your own ccstatusline.`
 
 /**
  * A terminal's ccstatusline that does not go with the mod's engine: of a
@@ -137,10 +142,11 @@ export async function mismatchOf(host: Host, runtime: string): Promise<Mismatch 
   }
 }
 
-/** What a dialog asks, and what the script is told for each answer that changes something. */
+/** What a dialog asks, what the script is told for each answer that changes something, and the answer that changes nothing. */
 type Dialog = {
   question: string
   changes: Readonly<Record<string, readonly string[]>>
+  leave: string
 }
 
 /** What the store keeps of a mismatch the person answered about. */
@@ -158,6 +164,7 @@ function dialogOf(mismatch: Mismatch): Dialog {
     return {
       question: `Your terminal's status line runs ccstatusline, which is no longer installed, so the terminal shows no status line. Install ccstatusline ${recommended}, or remove the setting and let ccstatusline desktop draw in the terminal too?`,
       changes: { [`Install ${recommended}`]: ['upgrade', recommended], [REMOVE_SETTING]: ['uninstall'] },
+      leave: NOT_NOW,
     }
   }
 
@@ -166,13 +173,39 @@ function dialogOf(mismatch: Mismatch): Dialog {
 
   return isNewer
     ? {
-        question: `Your terminal runs ccstatusline ${version}, newer than the ${recommended} ccstatusline desktop carries. They share one settings file, and a layout saved from here can lose what the newer one added. Uninstall it and let ccstatusline desktop draw in the terminal too?`,
+        question: `Your terminal runs ccstatusline ${version}, newer than the ${recommended} ccstatusline desktop carries. They share one settings file, and a layout saved from here can lose what the newer one added. Uninstall it and let ccstatusline desktop draw in the terminal too? ${continuingCosts('you uninstall it')}`,
         changes: uninstall,
+        leave: CONTINUE,
       }
     : {
-        question: `Your terminal runs ccstatusline ${version}, older than ccstatusline desktop shares a settings file with (${OLDEST_SHARING} to ${recommended}): it shows what the layout says to hide. Upgrade it to ${recommended}, or uninstall it and let ccstatusline desktop draw in the terminal too?`,
+        question: `Your terminal runs ccstatusline ${version}, older than ccstatusline desktop shares a settings file with (${OLDEST_SHARING} to ${recommended}): it shows what the layout says to hide. Upgrade it to ${recommended}, or uninstall it and let ccstatusline desktop draw in the terminal too? ${continuingCosts('you do one of the two')}`,
         changes: { [`Upgrade to ${recommended}`]: ['upgrade', recommended], ...uninstall },
+        leave: CONTINUE,
       }
+}
+
+/**
+ * What `/ccstatusline-desktop edit` answers in the configurator's place while
+ * a terminal's ccstatusline of a version out of range stands: a layout saved
+ * from the mod's configurator is one the other reads differently, or loses from.
+ *
+ * @param mismatch the mismatch that stands
+ * @returns why edit is off and how the layout is changed meanwhile; undefined
+ *          for a ccstatusline that is gone, which reads no layout
+ */
+export function editOffOf(mismatch: Mismatch): string | undefined {
+  if ('isMissing' in mismatch) {
+    return undefined
+  }
+
+  const { version, recommended, isNewer } = mismatch
+  const choice = isNewer ? `**${UNINSTALL}**` : `**Upgrade to ${recommended}** or **${UNINSTALL}**`
+
+  return [
+    `\`/ccstatusline-desktop edit\` is off while your terminal runs ccstatusline ${version}: ccstatusline desktop shares its settings file with versions ${OLDEST_SHARING} to ${recommended} only.`,
+    'To change the layout meanwhile, run your own ccstatusline in a terminal: the band draws what it saves.',
+    `To turn edit back on, run \`/ccstatusline-desktop edit\` again and choose ${choice}.`,
+  ].join('\n')
 }
 
 /**
@@ -207,11 +240,11 @@ export async function alignTerminal(
     return { standing: mismatch }
   }
 
-  const { question, changes } = dialogOf(mismatch)
+  const { question, changes, leave } = dialogOf(mismatch)
 
   // Dismissed, or asked where there is nobody to answer: asked again next time
   const answer = await host
-    .ask(question, { header: 'Terminal', options: [...Object.keys(changes), NOT_NOW] })
+    .ask(question, { header: 'Terminal', options: [...Object.keys(changes), leave] })
     .catch(() => undefined)
 
   if (answer === undefined) {

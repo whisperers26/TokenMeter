@@ -2,7 +2,7 @@ import type { Settings } from 'claude-code'
 import { describe, expect, test } from 'claude-code/testing'
 
 import type { Host } from '../hooks/host'
-import { alignTerminal, mismatchOf } from '../hooks/terminal'
+import { alignTerminal, editOffOf, mismatchOf } from '../hooks/terminal'
 
 type Run = Host['run']
 type Ran = Awaited<ReturnType<Run>>
@@ -171,27 +171,62 @@ describe('terminal', () => {
   })
 
   test('an older one can be upgraded to the version of the engine, uninstalled, or left', async () => {
-    const { host, asked } = hostOf({ found: OLDER, answer: 'Not now' })
+    const { host, asked } = hostOf({ found: OLDER, answer: 'Continue anyway' })
 
     await alignTerminal(host, 'node', false)
 
     expect(asked).toEqual([
       [
         expect.stringMatching(/^Your terminal runs ccstatusline 2\.2\.20, older than .*\(2\.2\.29 to 2\.2\.32\)/),
-        { header: 'Terminal', options: ['Upgrade to 2.2.32', 'Uninstall it', 'Not now'] },
+        { header: 'Terminal', options: ['Upgrade to 2.2.32', 'Uninstall it', 'Continue anyway'] },
       ],
     ])
   })
 
+  test('the dialog about a version says what continuing anyway costs: edit stays off', async () => {
+    const questions = await Promise.all(
+      [OLDER, NEWER].map(async found => {
+        const { host, asked } = hostOf({ found, answer: 'Continue anyway' })
+
+        await alignTerminal(host, 'node', false)
+
+        return String(asked[0]?.[0])
+      }),
+    )
+
+    expect(questions.map(question => question.slice(question.indexOf('You can continue anyway')))).toEqual([
+      'You can continue anyway: the band still draws, but /ccstatusline-desktop edit stays off until you do one of the two, and the layout is changed with your own ccstatusline.',
+      'You can continue anyway: the band still draws, but /ccstatusline-desktop edit stays off until you uninstall it, and the layout is changed with your own ccstatusline.',
+    ])
+  })
+
+  test('edit is off for a version out of range, and says how to change the layout and how to turn it back on', () => {
+    expect([
+      editOffOf(STANDING),
+      editOffOf({ version: '2.3.0', recommended: '2.2.32', isNewer: true })?.split('\n').at(-1),
+    ]).toEqual([
+      [
+        '`/ccstatusline-desktop edit` is off while your terminal runs ccstatusline 2.2.20: ccstatusline desktop shares its settings file with versions 2.2.29 to 2.2.32 only.',
+        'To change the layout meanwhile, run your own ccstatusline in a terminal: the band draws what it saves.',
+        'To turn edit back on, run `/ccstatusline-desktop edit` again and choose **Upgrade to 2.2.32** or **Uninstall it**.',
+      ].join('\n'),
+      'To turn edit back on, run `/ccstatusline-desktop edit` again and choose **Uninstall it**.',
+    ])
+  })
+
+  test('edit stays on beside a ccstatusline that is gone', () => {
+    expect(editOffOf({ isMissing: true, recommended: '2.2.32' })).toBeUndefined()
+  })
+
   test('a newer one can only be uninstalled, or left', async () => {
-    const { host, asked } = hostOf({ found: NEWER, answer: 'Not now' })
+    const { host, asked } = hostOf({ found: NEWER, answer: 'Continue anyway' })
 
     await alignTerminal(host, 'node', false)
 
     expect(asked).toEqual([
       [
         expect.stringMatching(/^Your terminal runs ccstatusline 2\.3\.0, newer than the 2\.2\.32 /),
-        { header: 'Terminal', options: ['Uninstall it', 'Not now'] },
+        { header: 'Terminal', options: ['Uninstall it', 'Continue anyway'] },
       ],
     ])
   })
@@ -213,9 +248,9 @@ describe('terminal', () => {
     expect(runs.at(-1)).toEqual(['node', SCRIPT, 'uninstall'])
   })
 
-  test('changes nothing on Not now, on a dismissal, or on words of the person\'s own', async () => {
+  test('changes nothing on Continue anyway, on a dismissal, or on words of the person\'s own', async () => {
     const left = await Promise.all(
-      ['Not now', undefined, 'Upgrade to 9.9.9'].map(async answer => {
+      ['Continue anyway', undefined, 'Upgrade to 9.9.9'].map(async answer => {
         const { host, runs } = hostOf({ found: OLDER, answer })
 
         return [await alignTerminal(host, 'node', false), runs.length]
@@ -230,8 +265,8 @@ describe('terminal', () => {
   })
 
   test('a mismatch answered about is not asked about again, until it is another', async () => {
-    const same = hostOf({ found: OLDER, answer: 'Not now', answered: '2.2.20 beside 2.2.32' })
-    const other = hostOf({ found: OLDER, answer: 'Not now', answered: '2.2.9 beside 2.2.32' })
+    const same = hostOf({ found: OLDER, answer: 'Continue anyway', answered: '2.2.20 beside 2.2.32' })
+    const other = hostOf({ found: OLDER, answer: 'Continue anyway', answered: '2.2.9 beside 2.2.32' })
 
     await alignTerminal(same.host, 'node', false)
     await alignTerminal(other.host, 'node', false)
@@ -252,7 +287,7 @@ describe('terminal', () => {
   })
 
   test('asked to repeat, it asks about a mismatch already answered about', async () => {
-    const { host, asked } = hostOf({ found: OLDER, answer: 'Not now', answered: '2.2.20 beside 2.2.32' })
+    const { host, asked } = hostOf({ found: OLDER, answer: 'Continue anyway', answered: '2.2.20 beside 2.2.32' })
 
     await alignTerminal(host, 'node', true)
 

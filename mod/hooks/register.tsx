@@ -14,7 +14,7 @@ import { reportOf } from './report'
 import { keepSnapshot, snapshotPathOf } from './snapshot'
 import { engineOf, engineSettingsPathIn, statusOf } from './status'
 import type { Status, Told } from './status'
-import { alignTerminal } from './terminal'
+import { alignTerminal, editOffOf } from './terminal'
 import { isUpdateAsked, update } from './update'
 
 /** What runs the engine unless the person names another runtime. */
@@ -293,10 +293,13 @@ export const register: Register = (on, options) => {
     if (isEditAsked(e.args)) {
       // A layout is about to be saved to the file the terminal's own
       // ccstatusline reads: the moment to ask again about one out of range
-      const { aligned } = await alignWithTerminal(bound, true)
-      const opened = await editLayout(bound, runtime)
+      const { standing, aligned } = await alignWithTerminal(bound, true)
 
-      return { text: aligned ? `${aligned.said}\n\n${opened}` : opened }
+      // One left out of range reads the file a save here would write: edit is off
+      const answered =
+        (standing && editOffOf(standing)) ?? (await editLayout(bound, runtime))
+
+      return { text: aligned ? `${aligned.said}\n\n${answered}` : answered }
     }
 
     if (isUpdateAsked(e.args)) {

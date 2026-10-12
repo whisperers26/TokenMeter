@@ -817,6 +817,44 @@ describe('register', () => {
     ])
   })
 
+  test("/ccstatusline-desktop edit opens no configurator while a terminal's ccstatusline is left out of range, and says why", async ($, on) => {
+    const { runs, terminalRuns } = worldOf(on, {
+      settings: OWN_STATUS_LINE,
+      terminal: () => printed(terminalAt('2.2.20')),
+    })
+
+    const asked = answering(on, () => 'Continue anyway')
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run({ ...COMMAND, args: 'edit' })
+
+    expect([asked.length, terminalRuns, runs, text?.split('\n')[0]]).toEqual([
+      1,
+      [['detect']],
+      [],
+      '`/ccstatusline-desktop edit` is off while your terminal runs ccstatusline 2.2.20: ccstatusline desktop shares its settings file with versions 2.2.29 to 2.2.32 only.',
+    ])
+  })
+
+  test("/ccstatusline-desktop edit still opens the configurator beside a status line whose ccstatusline is gone", async ($, on) => {
+    const { runs } = worldOf(on, {
+      settings: OWN_STATUS_LINE,
+      terminal: () => printed('{"kind":"global","isMissing":true}'),
+      run: () => printed('The configurator is open in a new terminal window.'),
+    })
+
+    answering(on, question =>
+      question.startsWith('Your terminal') ? 'Not now' : 'Open the configurator',
+    )
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run({ ...COMMAND, args: 'edit' })
+
+    expect([runs.length, text]).toEqual([1, 'The configurator is open in a new terminal window.'])
+  })
+
   test('/ccstatusline-desktop edit opens nothing where nobody answers the dialog', async ($, on) => {
     const { runs } = worldOf(on)
 
@@ -1092,14 +1130,14 @@ describe('register', () => {
     expect(terminalRuns).toEqual([])
   })
 
-  test('a version left as it is on Not now is not asked about in the next session', async ($, on) => {
+  test('a version left as it is on Continue anyway is not asked about in the next session', async ($, on) => {
     const { clock } = worldOf(on, {
       settings: OWN_STATUS_LINE,
       terminal: () => printed(terminalAt('2.2.20')),
       stored: { terminalAnswered: '2.2.20 beside 2.2.32' },
     })
 
-    const asked = answering(on, () => 'Not now')
+    const asked = answering(on, () => 'Continue anyway')
 
     await $.session.start(START)
     await $.ui.mount({ ...BAND, surface: 'desktop' })

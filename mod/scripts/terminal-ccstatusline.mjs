@@ -368,7 +368,7 @@ export function uninstall(world) {
     throw new Error('no ccstatusline was found to uninstall')
   }
 
-  return [...done, 'Your layout is kept: ccstatusline desktop draws it, in the terminal too from the next session.']
+  return [...done, 'Your layout is kept: ccstatusline desktop draws it, in the terminal too.']
 }
 
 /** This machine. */

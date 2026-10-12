@@ -197,6 +197,53 @@ test('detects the version a runner names, and asks the registry for latest', () 
   }
 })
 
+test('detects a global command that is no longer on the machine', () => {
+  const machine = machineOf({ settings: statusLineOf('ccstatusline') })
+
+  try {
+    assert.deepEqual(detect(machine.world), {
+      kind: 'global',
+      manager: undefined,
+      version: undefined,
+      isMissing: true,
+    })
+  } finally {
+    machine.drop()
+  }
+})
+
+test('calls no global command missing that is still on the PATH, or that npm could not be asked about', () => {
+  const held = machineOf({ settings: statusLineOf('ccstatusline') })
+  const unasked = machineOf({ settings: statusLineOf('ccstatusline'), failing: ['npm root -g'] })
+  const bin = join(held.world.home, 'pnpm')
+
+  // The PATH is read as this platform spells it: a Windows folder has a colon in it
+  mkdirSync(bin)
+  writeFileSync(join(bin, process.platform === 'win32' ? 'ccstatusline.cmd' : 'ccstatusline'), '')
+  held.world.env.PATH = bin
+  held.world.platform = process.platform
+
+  try {
+    assert.deepEqual(
+      [held, unasked].map(({ world }) => 'isMissing' in detect(world)),
+      [false, false],
+    )
+  } finally {
+    held.drop()
+    unasked.drop()
+  }
+})
+
+test('a command named by its path is missing once that file is gone', () => {
+  const machine = machineOf({ settings: statusLineOf('/opt/tools/bin/ccstatusline --config x.json') })
+
+  try {
+    assert.equal(detect(machine.world).isMissing, true)
+  } finally {
+    machine.drop()
+  }
+})
+
 test('detects nothing without a status line, with another tool there, or with settings that do not parse', () => {
   const machines = [
     machineOf(),

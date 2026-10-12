@@ -219,26 +219,40 @@ function versionAt(nodeModules) {
 }
 
 /** Every global install of ccstatusline, by the package manager that holds it. */
-function globalsOf(world) {
-  const npmRoot = world.sh('npm root -g')
-
+function globalsOf(world, npmRoot = world.sh('npm root -g')) {
   return [
     { manager: 'npm', version: npmRoot.status === 0 ? versionAt(npmRoot.stdout.trim()) : undefined },
     { manager: 'bun', version: versionAt(join(bunFolderOf(world), 'install', 'global', 'node_modules')) },
   ].filter(({ version }) => version !== undefined)
 }
 
-/** The global install the `ccstatusline` command runs, among those there are. */
-function activeOf(world, globals) {
+/** The package manager the `ccstatusline` command on the `PATH` came from; undefined with none there. */
+function managerOnPathOf(world) {
   const names = world.platform === 'win32' ? ['ccstatusline.cmd', 'ccstatusline.exe'] : ['ccstatusline']
 
-  const manager = managerOf(
+  return managerOf(
     (world.env.PATH ?? world.env.Path ?? '').split(world.platform === 'win32' ? ';' : ':').filter(Boolean),
     join(bunFolderOf(world), 'bin'),
     folder => names.some(name => existsSync(join(folder, name))),
   )
+}
+
+/** The global install the `ccstatusline` command runs, among those there are. */
+function activeOf(world, globals) {
+  const manager = managerOnPathOf(world)
 
   return globals.find(global => global.manager === manager) ?? globals[0]
+}
+
+/**
+ * Whether the command a status line names is there to run: the file, where
+ * it names one by its path, and a command of that name on the `PATH` otherwise.
+ */
+function isThere(world, command) {
+  const [first = ''] = command.trim().split(/\s+/)
+  const file = first.replace(/^["']|["']$/g, '')
+
+  return /[\\/]/.test(file) ? existsSync(file) : managerOnPathOf(world) !== undefined
 }
 
 /** The version a runner fetches: the one it names, or the registry's latest. */
@@ -262,7 +276,8 @@ function runnerVersionOf(world, spec) {
  *
  * @param world the machine: `env`, `home`, `platform`, and `sh`, which runs a shell line
  * @returns `{ kind: 'none' }` where it is not ccstatusline; else the kind of
- *          install, with its version where that could be told
+ *          install, with its version where that could be told, and
+ *          `isMissing` for a global command that is no longer on the machine
  */
 export function detect(world) {
   let command
@@ -283,9 +298,15 @@ export function detect(world) {
     return { kind: 'runner', runner: install.runner, version: runnerVersionOf(world, install.spec) }
   }
 
-  const active = activeOf(world, globalsOf(world))
+  const npmRoot = world.sh('npm root -g')
+  const globals = globalsOf(world, npmRoot)
+  const active = activeOf(world, globals)
 
-  return { kind: 'global', manager: active?.manager, version: active?.version }
+  // Said only where npm answered and found none: a package manager this
+  // script does not know leaves a command behind, and a narrow PATH hides one
+  const isMissing = npmRoot.status === 0 && globals.length === 0 && !isThere(world, command)
+
+  return { kind: 'global', manager: active?.manager, version: active?.version, ...(isMissing && { isMissing }) }
 }
 
 /** Runs a package manager's command; throws with its last words where it fails. */

@@ -240,6 +240,8 @@ node mod/scripts/sync-engine.mjs       # vendor the engine of the new version
 claude plugin test mod
 ```
 
+Then set the new version where [Install](#install) names the engine's: in the `npx -y ccstatusline@<version>` command, and in the paragraph after it.
+
 `README.md` is this fork's own; `git config merge.ours.driver true` (once per clone) makes merges keep it without asking.
 
 If you change `src/`, vendor your own build instead: `bun run build && node mod/scripts/sync-engine.mjs --local`.

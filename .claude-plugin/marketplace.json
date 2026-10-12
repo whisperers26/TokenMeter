@@ -12,7 +12,7 @@
       "description": "Your ccstatusline status line in the Claude Code desktop app: the same widgets, colours and settings, drawn in the band above the prompt.",
       "source": {
         "source": "git-subdir",
-        "url": "https://github.com/whisperers26/TokenMeter.git",
+        "url": "https://github.com/whisperers26/ccstatusline-desktop.git",
         "path": "mod",
         "ref": "token-meter--v0.1.3"
       },

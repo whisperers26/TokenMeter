@@ -45,10 +45,13 @@ One settings file for both only works while the two agree on what is in it, whic
 | --- | --- |
 | Older than 2.2.29 | **Upgrade to 2.2.32**, **Uninstall it**, or **Not now** |
 | Newer than 2.2.32 | **Uninstall it**, or **Not now** |
+| No longer installed, the `statusLine` still there | **Install 2.2.32**, **Remove the setting**, or **Not now** |
 
 - **Upgrade** installs 2.2.32 over a global install, with the package manager that holds it (`npm install -g ccstatusline@2.2.32`, or `bun add -g`), or makes an `npx` or `bunx` command name that version.
 - **Uninstall** takes the `statusLine` and ccstatusline's own hooks out of Claude Code's `settings.json` and removes every global install (`npm uninstall -g ccstatusline`, `bun remove -g ccstatusline`). The mod then draws the band in the terminal too.
 - **Not now** changes nothing, and that version is not asked about again until you run `/ccstatusline-desktop edit`.
+
+The last row is what `npm uninstall -g ccstatusline` alone leaves behind: the package is gone, but Claude Code's settings still run its command, so the terminal draws no status line and the mod, seeing a `statusLine`, stays out. **Install** puts ccstatusline 2.2.32 back; **Remove the setting** does what **Uninstall** does for what is left, and the mod draws the band in the terminal. It is asked only where npm answers and finds no ccstatusline, and no command of that name is left on the `PATH`.
 
 Either change keeps `settings.json` as it was beside it, as `settings.json.before-ccstatusline-desktop`, and neither touches your layout. A `statusLine` that reaches ccstatusline through a script of your own is not looked at, nor is one set in a project's settings.
 

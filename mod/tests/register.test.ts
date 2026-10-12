@@ -675,6 +675,48 @@ describe('register', () => {
     expect(text).toContain('/home/me/.config/ccstatusline/settings.json')
   })
 
+  test('/token-meter jetbrains runs the installer, not the engine, and says what it said', async ($, on) => {
+    const { runs } = worldOf(on, {
+      run: () => printed('Rider2026.2: installed\n'),
+    })
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run({ ...COMMAND, args: ' JetBrains ' })
+
+    const ran = runs.map(({ argv: [runtime, script = ''] }) => [
+      runtime,
+      script.replaceAll('\\', '/').split('/').slice(-2).join('/'),
+    ])
+
+    expect([ran, text]).toEqual([
+      [['node', 'scripts/install-jetbrains.mjs']],
+      'Rider2026.2: installed',
+    ])
+  })
+
+  test('/token-meter jetbrains says why the installer failed', async ($, on) => {
+    worldOf(on, {
+      run: () => exited(1, 'Token Meter: no JetBrains IDE of 2026.2 or later was found\n'),
+    })
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run({ ...COMMAND, args: 'jetbrains' })
+
+    expect(text).toBe('Token Meter: no JetBrains IDE of 2026.2 or later was found')
+  })
+
+  test('/token-meter jetbrains says so when the installer did not run', async ($, on) => {
+    worldOf(on, { run: () => ({ deny: NO_NODE }) })
+
+    await $.session.start(START)
+
+    const { text } = await $.command.run({ ...COMMAND, args: 'jetbrains' })
+
+    expect(text).toMatch(/^Token Meter: the installer did not run \(.*ENOENT/)
+  })
+
   test('draws the lines again once the engine recovers', async ($, on) => {
     let isBroken = true
 

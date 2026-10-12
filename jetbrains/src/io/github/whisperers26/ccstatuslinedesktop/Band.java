@@ -1,4 +1,4 @@
-package io.github.whisperers26.tokenmeter;
+package io.github.whisperers26.ccstatuslinedesktop;
 
 import com.intellij.ide.BrowserUtil;
 import com.intellij.ml.llm.core.chat.session.ChatSession;
@@ -11,9 +11,9 @@ import com.intellij.openapi.observable.properties.AtomicBooleanProperty;
 import com.intellij.openapi.observable.properties.ObservableBooleanProperty;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.util.concurrency.AppExecutorUtil;
-import io.github.whisperers26.tokenmeter.Snapshot.Row;
-import io.github.whisperers26.tokenmeter.Snapshot.Span;
-import io.github.whisperers26.tokenmeter.Snapshot.Trait;
+import io.github.whisperers26.ccstatuslinedesktop.Snapshot.Row;
+import io.github.whisperers26.ccstatuslinedesktop.Snapshot.Span;
+import io.github.whisperers26.ccstatuslinedesktop.Snapshot.Trait;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -101,12 +101,12 @@ final class Band implements AIAssistantChatPanelComponent {
             }
         } catch (LinkageError changed) {
             // AI Assistant's classes are not the ones the plugin was built against: no later try will do better
-            LOG.warn("Token Meter draws no band: build the plugin again for this AI Assistant", changed);
+            LOG.warn("ccstatusline desktop draws no band: build the plugin again for this AI Assistant", changed);
             reading.cancel(false);
         } catch (RuntimeException failed) {
             if (!hasFailed) {
                 hasFailed = true;
-                LOG.warn("Token Meter could not read this chat's status lines", failed);
+                LOG.warn("ccstatusline desktop could not read this chat's status lines", failed);
             }
         }
     }
@@ -125,7 +125,7 @@ final class Band implements AIAssistantChatPanelComponent {
         boolean isStale = snapshot.isStaleAt(System.currentTimeMillis());
 
         if (snapshot.failure() != null) {
-            Span why = new Span("Token Meter: " + snapshot.failure(), null, null, Set.of(Trait.DIM), null);
+            Span why = new Span("ccstatusline desktop: " + snapshot.failure(), null, null, Set.of(Trait.DIM), null);
 
             return new Shown(List.of(new Row(List.of(List.of(why)))), isStale);
         }

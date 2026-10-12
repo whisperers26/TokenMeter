@@ -1,4 +1,4 @@
-package io.github.whisperers26.tokenmeter;
+package io.github.whisperers26.ccstatuslinedesktop;
 
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
@@ -41,7 +41,7 @@ public final class ReaderLife implements Disposable {
         try {
             folder.signLife(System.currentTimeMillis());
         } catch (IOException | RuntimeException failed) {
-            LOG.warn("Token Meter could not sign life in " + folder.path() + ": sessions will keep no snapshot", failed);
+            LOG.warn("ccstatusline desktop could not sign life in " + folder.path() + ": sessions will keep no snapshot", failed);
         }
     }
 
@@ -49,7 +49,7 @@ public final class ReaderLife implements Disposable {
         try {
             folder.prune(System.currentTimeMillis());
         } catch (IOException | RuntimeException failed) {
-            LOG.info("Token Meter could not clear old snapshots from " + folder.path(), failed);
+            LOG.info("ccstatusline desktop could not clear old snapshots from " + folder.path(), failed);
         }
     }
 

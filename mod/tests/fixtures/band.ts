@@ -3,7 +3,7 @@
  * columns wide, no survey holding it.
  */
 export const BAND = {
-  plugin: 'token-meter',
+  plugin: 'ccstatusline-desktop',
   component: 'AbovePrompt',
   props: {
     hasSurvey: false,

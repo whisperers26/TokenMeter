@@ -1,4 +1,4 @@
-package io.github.whisperers26.tokenmeter;
+package io.github.whisperers26.ccstatuslinedesktop;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * The folder the Token Meter mod keeps snapshots in and reads its reader's
+ * The folder the ccstatusline desktop mod keeps snapshots in and reads its reader's
  * sign of life from, under the home directory on every platform.
  */
 public record Folder(Path path) {
@@ -29,7 +29,7 @@ public record Folder(Path path) {
     public static Folder in(Map<String, String> environment, String userHome) {
         String home = environment.getOrDefault("USERPROFILE", environment.getOrDefault("HOME", userHome));
 
-        return new Folder(Path.of(home).resolve(".cache").resolve("token-meter"));
+        return new Folder(Path.of(home).resolve(".cache").resolve("ccstatusline-desktop"));
     }
 
     /** The folder for this process: its own environment, and its own home directory. */

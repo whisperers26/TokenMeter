@@ -2,7 +2,7 @@
 
 **Your [ccstatusline](https://github.com/sirmalloc/ccstatusline) status line, in the Claude Code desktop app and in the AI Assistant chat of JetBrains IDEs too.**
 
-ccstatusline desktop is a fork of ccstatusline. A terminal session of Claude Code shows a status line by running a `statusLine` command; the desktop app runs no such command, and neither does a JetBrains IDE that runs Claude in its AI chat, so the line disappears in both. This fork adds Token Meter: a Claude Code mod (a plugin) that draws the same lines in the band above the desktop app's prompt, and a [JetBrains plugin](#jetbrains-ides), installed with one command, that draws them above the chat's input.
+ccstatusline desktop is a fork of ccstatusline. A terminal session of Claude Code shows a status line by running a `statusLine` command; the desktop app runs no such command, and neither does a JetBrains IDE that runs Claude in its AI chat, so the line disappears in both. This fork adds ccstatusline desktop: a Claude Code mod (a plugin) that draws the same lines in the band above the desktop app's prompt, and a [JetBrains plugin](#jetbrains-ides), installed with one command, that draws them above the chat's input.
 
 In the desktop app:
 
@@ -26,10 +26,10 @@ You need a recent Claude Code (tested with 2.1.296) and Node.js 14 or later on y
 From any shell:
 
 ```bash
-claude plugin install token-meter --marketplace whisperers26/ccstatusline-desktop
+claude plugin install ccstatusline-desktop --marketplace whisperers26/ccstatusline-desktop
 ```
 
-or, inside a terminal session of Claude Code, `/plugin install token-meter --marketplace whisperers26/ccstatusline-desktop`. The desktop app's own prompt does not take `/plugin`; a plugin installed from a shell at the default user scope loads there too. Start a new desktop session and the band appears above the prompt.
+or, inside a terminal session of Claude Code, `/plugin install ccstatusline-desktop --marketplace whisperers26/ccstatusline-desktop`. The desktop app's own prompt does not take `/plugin`; a plugin installed from a shell at the default user scope loads there too. Start a new desktop session and the band appears above the prompt.
 
 That installs the latest release, not the tip of `main`.
 
@@ -46,17 +46,17 @@ There is nothing to do: the band draws itself wherever the mod is enabled.
 | Terminal with no `statusLine` | The mod, in the band above the prompt |
 | JetBrains AI Assistant chat with Claude | The [JetBrains plugin](#jetbrains-ides), above the chat's input, from the lines the mod runs |
 
-`/token-meter jetbrains` installs the [JetBrains plugin](#jetbrains-ides). `/token-meter` alone prints the current lines as text, the path of the settings file behind them and the command that opens the configurator. When the band shows `Token Meter: the engine did not run (...)` instead of your lines, that command says how the engine is being run.
+`/ccstatusline-desktop jetbrains` installs the [JetBrains plugin](#jetbrains-ides). `/ccstatusline-desktop` alone prints the current lines as text, the path of the settings file behind them and the command that opens the configurator. When the band shows `ccstatusline desktop: the engine did not run (...)` instead of your lines, that command says how the engine is being run.
 
 ### Options
 
 Set them when you install, with `--config refreshSeconds=10`, or later from any shell:
 
 ```bash
-echo '{"refreshSeconds": "10"}' | claude plugin configure token-meter@token-meter --values-stdin
+echo '{"refreshSeconds": "10"}' | claude plugin configure ccstatusline-desktop@ccstatusline-desktop --values-stdin
 ```
 
-In a terminal session, `/plugin configure token-meter@token-meter` asks for them instead. A change applies to the sessions you start after it.
+In a terminal session, `/plugin configure ccstatusline-desktop@ccstatusline-desktop` asks for them instead. A change applies to the sessions you start after it.
 
 | Option | Default | What it does |
 | --- | --- | --- |
@@ -80,28 +80,28 @@ Each chat shows the lines of its own Claude session, refreshed as the mod refres
 You need the mod installed in Claude Code as [above](#install), at 0.1.4 or later, and an IDE of the 2026.1 line or later with JetBrains AI Assistant and Claude as an agent in it. Android Studio is such an IDE (from 0.1.6 of the mod), with JetBrains AI Assistant installed from its plugins page. Then, from any shell:
 
 ```bash
-claude -p "/token-meter jetbrains"
+claude -p "/ccstatusline-desktop jetbrains"
 ```
 
-or `/token-meter jetbrains` inside a session of Claude Code. That downloads the plugin of the mod's own version from this repository's [releases](https://github.com/whisperers26/ccstatusline-desktop/releases) and puts it in the plugins folder of every JetBrains IDE of 2026.1 or later it finds on the machine, Android Studio among them, saying which. Restart the IDE and open a chat with Claude. Run it again after the mod updates, so that the two stay of one version; an IDE that is open may hold the old plugin, and the command then says to close it first.
+or `/ccstatusline-desktop jetbrains` inside a session of Claude Code. That downloads the plugin of the mod's own version from this repository's [releases](https://github.com/whisperers26/ccstatusline-desktop/releases) and puts it in the plugins folder of every JetBrains IDE of 2026.1 or later it finds on the machine, Android Studio among them, saying which. Restart the IDE and open a chat with Claude. Run it again after the mod updates, so that the two stay of one version; an IDE that is open may hold the old plugin, and the command then says to close it first.
 
 ### Installing the zip by hand
 
 The plugin is not on JetBrains Marketplace. Where the command does not find your IDE, or you would rather not have it write there, install the same zip yourself; the steps are the same in every JetBrains IDE, and in Android Studio:
 
-1. Download `token-meter-<version>.zip` from the [latest release](https://github.com/whisperers26/ccstatusline-desktop/releases/latest). Do not unpack it.
+1. Download `ccstatusline-desktop-<version>.zip` from the [latest release](https://github.com/whisperers26/ccstatusline-desktop/releases/latest). Do not unpack it.
 2. In the IDE, open **Settings** (**Ctrl+Alt+S**, or **⌘ ,** on macOS) and choose **Plugins**.
 3. Click the gear (⚙) at the top of the page, then **Install Plugin from Disk...**, and pick the zip.
 4. Click **OK** and restart the IDE when it asks.
 
-To update, do the same with the newer zip. To remove the plugin, find Token Meter under **Plugins | Installed** and uninstall it.
+To update, do the same with the newer zip. To remove the plugin, find ccstatusline desktop under **Plugins | Installed** and uninstall it.
 
 The zip is Java and holds nothing of the machine it was built on, so the one zip serves Windows, macOS and Linux. It is built against one IDE's AI Assistant and has been run on Windows only; to build it against your own IDE instead, see [Development](#development).
 
 Three things to know:
 
 - The plugin draws in a slot of AI Assistant's chat that JetBrains does not document, and reads the chat's session id from AI Assistant's own classes. An AI Assistant update can change either. Should the chat misbehave after one, disable the plugin until a release catches up. [Building the plugin](#development) against your own IDE tells you whether it still fits: the build checks that the slot is still declared and that the classes still fit, and fails where they do not.
-- From the first AI chat an IDE with the plugin shows, and until that IDE closes, every Claude Code session on the machine that is on no surface of Claude Code's own (an IDE's, an SDK host's, a `claude -p` run) keeps a small snapshot of its lines under `~/.cache/token-meter`, which costs it a run of the engine at its start, after each turn and on the timer. With no such IDE running, sessions keep none.
+- From the first AI chat an IDE with the plugin shows, and until that IDE closes, every Claude Code session on the machine that is on no surface of Claude Code's own (an IDE's, an SDK host's, a `claude -p` run) keeps a small snapshot of its lines under `~/.cache/ccstatusline-desktop`, which costs it a run of the engine at its start, after each turn and on the timer. With no such IDE running, sessions keep none.
 - It has been run on a local project in Rider, and builds against the AI Assistant of PyCharm, RustRover and Android Studio too. A project opened through remote development has not been tried.
 
 ## How it works
@@ -124,8 +124,8 @@ The engine in `mod/engine` is the published `ccstatusline` release of the versio
 A session an IDE hosts has no surface that asks the mod to draw, so step 3 has nowhere to go. There the two halves meet in a folder under the home directory instead:
 
 ```text
-JetBrains plugin ──▶ ~/.cache/token-meter/reader                 "a reader is here", once a minute
-mod, in the chat's Claude session ──▶ ~/.cache/token-meter/sessions/<session id>.json
+JetBrains plugin ──▶ ~/.cache/ccstatusline-desktop/reader                 "a reader is here", once a minute
+mod, in the chat's Claude session ──▶ ~/.cache/ccstatusline-desktop/sessions/<session id>.json
 JetBrains plugin ◀── that file, read once a second ──▶ band above the chat's input
 ```
 
@@ -153,7 +153,7 @@ The plugin also drops snapshots no session has written for a week.
 | `mod/engine/` | The vendored ccstatusline engine the mod runs |
 | `mod/scripts/` | What vendors the engine, and what installs the JetBrains plugin from a release |
 | `jetbrains/` | The JetBrains plugin: its sources, its tests, and the one file that builds it |
-| `.claude-plugin/marketplace.json` | Lists `mod/` as the plugin `token-meter` |
+| `.claude-plugin/marketplace.json` | Lists `mod/` as the plugin `ccstatusline-desktop` |
 
 ## Development
 
@@ -162,8 +162,8 @@ The mod is checked with Claude Code's own tools, not the engine's:
 ```bash
 claude plugin validate mod             # the manifest, and what the hooks module hooks and calls
 claude plugin test mod                 # mod/tests, on the terminal and desktop surfaces
-claude -p "/token-meter" --plugin-dir mod   # the real engine, end to end, with no model call
-node --test mod/scripts/install-jetbrains.test.mjs   # the installer `/token-meter jetbrains` runs
+claude -p "/ccstatusline-desktop" --plugin-dir mod   # the real engine, end to end, with no model call
+node --test mod/scripts/install-jetbrains.test.mjs   # the installer `/ccstatusline-desktop jetbrains` runs
 ```
 
 `claude --plugin-dir mod` loads the mod from this folder for one session and reloads it as you save. It also lays Claude Code's type declarations in `mod/.claude-plugin/types`, after which `npx tsc -p mod` type-checks the mod.
@@ -174,7 +174,7 @@ The JetBrains plugin is plain Java, built by [`jetbrains/Build.java`](jetbrains/
 
 ```bash
 "<IDE home>/jbr/bin/java" jetbrains/Build.java test      # compile, and run jetbrains/tests
-"<IDE home>/jbr/bin/java" jetbrains/Build.java           # and write jetbrains/out/token-meter-<version>.zip
+"<IDE home>/jbr/bin/java" jetbrains/Build.java           # and write jetbrains/out/ccstatusline-desktop-<version>.zip
 "<IDE home>/jbr/bin/java" jetbrains/Build.java install   # and put it in that IDE's plugins folder
 ```
 
@@ -186,20 +186,20 @@ To try a change to the mod in the IDE before it is released, start the IDE with 
 
 An install does not take whatever is on `main`. The marketplace entry in `.claude-plugin/marketplace.json` names a release tag, and Claude Code installs the mod as it stood at that tag. To release:
 
-1. Set the new version in `mod/.claude-plugin/plugin.json`, and the same version and its tag (`token-meter--v<version>`) in `.claude-plugin/marketplace.json`. Commit and merge to `main`.
+1. Set the new version in `mod/.claude-plugin/plugin.json`, and the same version and its tag (`ccstatusline-desktop--v<version>`) in `.claude-plugin/marketplace.json`. Commit and merge to `main`.
 2. `claude plugin tag mod --push` creates and pushes that tag, after checking the two files agree.
-3. Build the JetBrains plugin at that commit and publish the release with its zip, which is where `/token-meter jetbrains` and a manual install get it:
+3. Build the JetBrains plugin at that commit and publish the release with its zip, which is where `/ccstatusline-desktop jetbrains` and a manual install get it:
 
    ```bash
    "<IDE home>/jbr/bin/java" jetbrains/Build.java
-   gh release create token-meter--v<version> jetbrains/out/token-meter-<version>.zip --title "Token Meter <version>" --generate-notes
+   gh release create ccstatusline-desktop--v<version> jetbrains/out/ccstatusline-desktop-<version>.zip --title "ccstatusline desktop <version>" --generate-notes
    ```
 
-   A release without the zip leaves `/token-meter jetbrains` of that version with nothing to download.
+   A release without the zip leaves `/ccstatusline-desktop jetbrains` of that version with nothing to download.
 
-Machines that already have the mod get the release from `claude plugin update token-meter@token-meter`, or by themselves where the marketplace is set to update automatically.
+Machines that already have the mod get the release from `claude plugin update ccstatusline-desktop@ccstatusline-desktop`, or by themselves where the marketplace is set to update automatically.
 
-The JetBrains plugin takes the mod's version when it is built. A machine gets a release's plugin by running `/token-meter jetbrains` again after the mod has updated.
+The JetBrains plugin takes the mod's version when it is built. A machine gets a release's plugin by running `/ccstatusline-desktop jetbrains` again after the mod has updated.
 
 ### Keeping up with ccstatusline
 

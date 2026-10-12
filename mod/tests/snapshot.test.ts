@@ -50,12 +50,12 @@ describe('snapshot', () => {
       snapshotPathIn('/home/me', 'abc'),
       snapshotPathIn('C:\\Users\\me', 'abc'),
     ]).toEqual([
-      '/home/me/.cache/token-meter/sessions/abc.json',
-      'C:\\Users\\me\\.cache\\token-meter\\sessions\\abc.json',
+      '/home/me/.cache/ccstatusline-desktop/sessions/abc.json',
+      'C:\\Users\\me\\.cache\\ccstatusline-desktop\\sessions\\abc.json',
     ])
   })
 
   test("a reader's sign of life is one file beside the snapshots", () => {
-    expect(readerPathIn('/home/me')).toBe('/home/me/.cache/token-meter/reader')
+    expect(readerPathIn('/home/me')).toBe('/home/me/.cache/ccstatusline-desktop/reader')
   })
 })

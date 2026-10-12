@@ -1,12 +1,12 @@
 <idea-plugin>
-  <id>io.github.whisperers26.tokenmeter</id>
-  <name>Token Meter</name>
+  <id>io.github.whisperers26.ccstatuslinedesktop</id>
+  <name>ccstatusline desktop</name>
   <version>${version}</version>
   <vendor url="https://github.com/whisperers26/ccstatusline-desktop">whisperers26</vendor>
   <description><![CDATA[
     Your <a href="https://github.com/sirmalloc/ccstatusline">ccstatusline</a> status line in the JetBrains AI
-    Assistant chat: the lines the Token Meter mod of Claude Code runs for a chat's Claude session, drawn above
-    the chat's input. It needs the Token Meter mod installed in Claude Code, and draws nothing without it.
+    Assistant chat: the lines the ccstatusline desktop mod of Claude Code runs for a chat's Claude session, drawn above
+    the chat's input. It needs the ccstatusline desktop mod installed in Claude Code, and draws nothing without it.
   ]]></description>
   <idea-version since-build="261"/>
 
@@ -14,6 +14,6 @@
   <depends>com.intellij.ml.llm</depends>
 
   <extensions defaultExtensionNs="com.intellij">
-    <ml.llm.chatPanelComponentProvider implementation="io.github.whisperers26.tokenmeter.BandProvider"/>
+    <ml.llm.chatPanelComponentProvider implementation="io.github.whisperers26.ccstatuslinedesktop.BandProvider"/>
   </extensions>
 </idea-plugin>

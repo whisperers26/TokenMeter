@@ -1,4 +1,4 @@
-package io.github.whisperers26.tokenmeter;
+package io.github.whisperers26.ccstatuslinedesktop;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -14,7 +14,7 @@ public final class SnapshotReaderTest {
 
     /** The folder under a home directory made for one test. */
     private static Folder inTemporaryHome() throws IOException {
-        return Folder.in(Map.of(), Files.createTempDirectory("token-meter-test").toString());
+        return Folder.in(Map.of(), Files.createTempDirectory("ccstatusline-desktop-test").toString());
     }
 
     /** A snapshot's text: one row saying `text`, of the session `sessionId`. */

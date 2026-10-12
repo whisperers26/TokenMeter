@@ -1,4 +1,4 @@
-package io.github.whisperers26.tokenmeter;
+package io.github.whisperers26.ccstatuslinedesktop;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -20,7 +20,7 @@ public final class FolderTest {
 
     /** The folder under a home directory made for one test. */
     private static Folder inTemporaryHome() throws IOException {
-        return Folder.in(Map.of(), Files.createTempDirectory("token-meter-test").toString());
+        return Folder.in(Map.of(), Files.createTempDirectory("ccstatusline-desktop-test").toString());
     }
 
     private static void write(Path file, long modifiedAt) throws IOException {
@@ -40,9 +40,9 @@ public final class FolderTest {
 
         Check.equal(
             List.of(
-                profile.resolve(".cache").resolve("token-meter"),
-                HOME.resolve(".cache").resolve("token-meter"),
-                HOME.resolve(".cache").resolve("token-meter")),
+                profile.resolve(".cache").resolve("ccstatusline-desktop"),
+                HOME.resolve(".cache").resolve("ccstatusline-desktop"),
+                HOME.resolve(".cache").resolve("ccstatusline-desktop")),
             List.of(
                 Folder.in(Map.of("USERPROFILE", profile.toString(), "HOME", "elsewhere"), "unused").path(),
                 Folder.in(Map.of("HOME", HOME.toString()), "unused").path(),
@@ -51,13 +51,13 @@ public final class FolderTest {
 
     public static void keeps_the_readers_sign_of_life_in_one_file() {
         Check.equal(
-            HOME.resolve(".cache").resolve("token-meter").resolve("reader"),
+            HOME.resolve(".cache").resolve("ccstatusline-desktop").resolve("reader"),
             Folder.in(Map.of(), HOME.toString()).reader());
     }
 
     public static void keeps_a_snapshot_in_a_file_named_for_its_session() {
         Check.equal(
-            Optional.of(HOME.resolve(".cache").resolve("token-meter").resolve("sessions").resolve("abc-123.json")),
+            Optional.of(HOME.resolve(".cache").resolve("ccstatusline-desktop").resolve("sessions").resolve("abc-123.json")),
             Folder.in(Map.of(), HOME.toString()).snapshotOf("abc-123"));
     }
 

@@ -1,7 +1,7 @@
-package io.github.whisperers26.tokenmeter;
+package io.github.whisperers26.ccstatuslinedesktop;
 
-import io.github.whisperers26.tokenmeter.Snapshot.Row;
-import io.github.whisperers26.tokenmeter.Snapshot.Span;
+import io.github.whisperers26.ccstatuslinedesktop.Snapshot.Row;
+import io.github.whisperers26.ccstatuslinedesktop.Snapshot.Span;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics2D;

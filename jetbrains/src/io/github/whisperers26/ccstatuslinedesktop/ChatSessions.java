@@ -1,4 +1,4 @@
-package io.github.whisperers26.tokenmeter;
+package io.github.whisperers26.ccstatuslinedesktop;
 
 import com.intellij.ml.llm.chat.session.FrontendSessionOverChatSessionKt;
 import com.intellij.ml.llm.chat.session.SessionHistoryStorage;

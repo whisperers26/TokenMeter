@@ -1,4 +1,4 @@
-package io.github.whisperers26.tokenmeter;
+package io.github.whisperers26.ccstatuslinedesktop;
 
 import com.intellij.ml.llm.core.chat.session.ChatSession;
 import com.intellij.ml.llm.core.chat.ui.chat.AIAssistantChatPanel;

@@ -7,7 +7,7 @@ const INSTALLER = ['scripts', 'install-jetbrains.mjs'] as const
 /** How long the installer may take: it downloads the plugin first. */
 const INSTALL_TIMEOUT_MS = 120_000
 
-/** What `/token-meter` is followed by to install the JetBrains plugin. */
+/** What `/ccstatusline-desktop` is followed by to install the JetBrains plugin. */
 export const isJetBrainsAsked = (args: string): boolean =>
   args.trim().toLowerCase() === 'jetbrains'
 
@@ -37,6 +37,6 @@ export async function installJetBrains(
   } catch (error) {
     const said = error instanceof Error ? error.message : String(error)
 
-    return `Token Meter: the installer did not run (${said})`
+    return `ccstatusline desktop: the installer did not run (${said})`
   }
 }

@@ -1,4 +1,4 @@
-package io.github.whisperers26.tokenmeter;
+package io.github.whisperers26.ccstatuslinedesktop;
 
 import com.intellij.ide.ui.UISettings;
 import com.intellij.util.ui.JBFont;

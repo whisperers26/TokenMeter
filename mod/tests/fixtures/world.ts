@@ -34,11 +34,22 @@ export type WorldOptions = {
   surfaces?: readonly RenderSurface[]
   /** How a write ends; left out, the file is written. */
   write?: (e: Args<'fs.write'>) => EventResult<'fs.write'>
+  /**
+   * How a run of the script that looks at the terminal's ccstatusline ends;
+   * left out, it finds none.
+   */
+  terminal?: (e: Args<'process.run'>) => Ran | Promise<Ran>
+  /** What the mod's own store holds at the start. */
+  stored?: Readonly<Record<string, unknown>>
 }
 
 export type World = {
   /** Every run of the engine the mod asked for, oldest first. */
   runs: Args<'process.run'>[]
+  /** What each run of the script on the terminal's ccstatusline was told, oldest first. */
+  terminalRuns: string[][]
+  /** Every line the mod wrote to the transcript, oldest first. */
+  logged: string[]
   /** Every file the mod read, as the test would spell its path. */
   reads: string[]
   /** Every file the mod wrote, its path spelled the same way, oldest first. */
@@ -59,6 +70,12 @@ export const USAGE: SessionUsage = {
 
 /** The file a reader of snapshots keeps its sign of life in. */
 const READER = '/home/me/.cache/ccstatusline-desktop/reader'
+
+/** The file that names the version of the engine the mod runs. */
+const ENGINE_VERSION = /\/engine\/VERSION$/
+
+/** The script that looks at the terminal's ccstatusline, and changes it. */
+const TERMINAL_SCRIPT = /[\\/]scripts[\\/]terminal-ccstatusline\.mjs$/
 
 /** The key of the band Claude Code draws when the mod draws none. */
 const OWN_BAND = 'claude-code-own-band'
@@ -108,9 +125,12 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   const runs: Args<'process.run'>[] = []
   const reads: string[] = []
   const writes: World['writes'] = []
+  const terminalRuns: string[][] = []
+  const logged: string[] = []
   const clock = mock.clock(on, { now: USAGE.startedAt + 900_000 })
 
   mock.env(on, { HOME: '/home/me' })
+  mock.store(on, options.stored)
 
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.attach', ($, e) => ({ clientId: e.clientId }))
@@ -136,7 +156,17 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   on('classic.PostModelSwitch', () => ({}))
   on('classic.CwdChanged', () => ({}))
 
+  on('ui.log', ($, e) => {
+    logged.push(e.text)
+
+    return { value: undefined }
+  })
+
   on('fs.read', ($, e) => {
+    if (ENGINE_VERSION.test(plain(e.path))) {
+      return { value: '2.2.32\n' }
+    }
+
     reads.push(plain(e.path))
 
     const text =
@@ -160,6 +190,12 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   })
 
   on('process.run', ($, e) => {
+    if (TERMINAL_SCRIPT.test(e.argv[1] ?? '')) {
+      terminalRuns.push(e.argv.slice(2))
+
+      return options.terminal?.(e) ?? printed('{"kind":"none"}\n')
+    }
+
     runs.push(e)
 
     return options.run?.(e) ?? printed(ENGINE_OUTPUT)
@@ -169,5 +205,5 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     $.ui.resolve(e).Box({ key: OWN_BAND }),
   )
 
-  return { runs, reads, writes, clock }
+  return { runs, terminalRuns, logged, reads, writes, clock }
 }

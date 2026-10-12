@@ -14,6 +14,7 @@ import { reportOf } from './report'
 import { keepSnapshot, snapshotPathOf } from './snapshot'
 import { engineOf, engineSettingsPathIn, statusOf } from './status'
 import type { Status, Told } from './status'
+import { alignTerminal } from './terminal'
 import { isUpdateAsked, update } from './update'
 
 /** What runs the engine unless the person names another runtime. */
@@ -86,6 +87,32 @@ export const register: Register = (on, options) => {
 
   const drawsOn = (surface: RenderSurface) =>
     surface === 'desktop' || (surface === 'terminal' && isTerminalFree)
+
+  /** Whether this session has looked at the version of the terminal's ccstatusline. */
+  let isTerminalLookedAt = false
+
+  /**
+   * Asks about a terminal's ccstatusline of a version the engine does not
+   * share its settings with, and does what the person chose. One uninstalled
+   * frees the terminal: the band is drawn there from then on.
+   *
+   * @param isRepeated whether to ask about a version already answered about
+   * @returns what was done; undefined where nothing was
+   */
+  async function alignWithTerminal(host: Host, isRepeated: boolean) {
+    const aligned = await alignTerminal(host, runtime, isRepeated)
+
+    if (aligned?.isChanged) {
+      isTerminalFree = await host.settings().then(
+        settings => !hasOwnStatusLine(settings),
+        () => isTerminalFree,
+      )
+
+      host.invalidate()
+    }
+
+    return aligned
+  }
 
   /** The band's width on each surface that draws it, in character cells. */
   const columnsOf = new Map<RenderSurface, number>()
@@ -343,6 +370,20 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'AbovePrompt' }, ($, e, next) => {
     isOnSurface = true
+
+    // A surface that draws has a person at it to ask: once a session, and
+    // from outside the draw, which does not wait on a dialog
+    if (bound && !isTerminalLookedAt) {
+      const host = bound
+
+      isTerminalLookedAt = true
+
+      host.after(0, () => {
+        void alignWithTerminal(host, false)
+          .then(aligned => aligned && host.log(aligned.said))
+          .catch(() => undefined)
+      })
+    }
 
     if (!bound || e.props.hasSurvey || !drawsOn(e.surface)) {
       return next(e)
